@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/vancelongwill/gotodos/db"
+	"github.com/vancelongwill/gotodos/handlers"
+	"log"
 	"net/http"
+	"path"
 )
 
 func ping(c *gin.Context) {
@@ -11,50 +16,29 @@ func ping(c *gin.Context) {
 	})
 }
 
-func createTodo(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "create",
-	})
-}
-
-func getAllTodos(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "getAll",
-	})
-}
-
-func getTodo(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "get",
-	})
-}
-
-func updateTodo(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "update",
-	})
-}
-
-func deleteTodo(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "delete",
-	})
-}
-
 func main() {
-	r := gin.Default()
-	r.GET("/ping", ping)
+	app := gin.Default()
+	app.GET("/ping", ping)
 
-	v1prefix := "/api/v1"
+	apiPrefix := "api"
+	version := "v1"
+	port := "8080"
 
-	todoRouter := r.Group(v1prefix + "/todos")
-	{
-		todoRouter.POST("/", createTodo)
-		todoRouter.GET("/", getAllTodos)
-		todoRouter.GET("/:id", getTodo)
-		todoRouter.PUT("/:id", updateTodo)
-		todoRouter.DELETE("/:id", deleteTodo)
+	db, dbErr := db.Init()
+	if dbErr != nil {
+		log.Fatal("Error initialising database:\t", dbErr)
 	}
 
-	r.Run()
+	todoHandler := handlers.NewTodoHandler(db)
+
+	todoRouter := app.Group(path.Join(apiPrefix, version, "todos"))
+	{
+		todoRouter.GET("/", todoHandler.GetAll)
+		todoRouter.POST("/", todoHandler.Create)
+		todoRouter.GET("/:id", todoHandler.Get)
+		todoRouter.PUT("/:id", todoHandler.Update)
+		todoRouter.DELETE("/:id", todoHandler.Delete)
+	}
+
+	app.Run(fmt.Sprintf(":%s", port))
 }
