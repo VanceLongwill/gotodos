@@ -1,4 +1,4 @@
-package model
+package models
 
 // @TODO: implement tagging as a method to organise user todos
 
