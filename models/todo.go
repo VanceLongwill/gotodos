@@ -9,7 +9,7 @@ import (
 type Todo struct {
 	gorm.Model
 	Title  string    `json: "title"`
-	Body   string    `json: "body"`
+	Note   string    `json: "note"`
 	DueAt  time.Time `json: "dueAt"`
 	IsDone bool      `json: "isDone"`
 	UserID uint

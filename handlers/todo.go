@@ -24,7 +24,7 @@ func NewTodoHandler(db *gorm.DB) *TodoHandler {
 func (t *TodoHandler) Create(c *gin.Context) {
 	todo := models.Todo{
 		Title:  c.PostForm("title"), // @TODO sanitize
-		Body:   c.PostForm("body"),  // @TODO sanitize
+		Note:   c.PostForm("note"),  // @TODO sanitize
 		IsDone: false,
 	}
 	t.db.Save(&todo)
@@ -38,7 +38,7 @@ func (t *TodoHandler) Create(c *gin.Context) {
 type transformedTodo struct {
 	ID     uint      `json: "id"`
 	Title  string    `json: "title"`
-	Body   string    `json: "body"`
+	Note   string    `json: "note"`
 	DueAt  time.Time `json: "dueAt"`
 	IsDone bool      `json: "isDone"`
 }
@@ -62,7 +62,7 @@ func (t *TodoHandler) GetAll(c *gin.Context) {
 		_todos = append(_todos, transformedTodo{
 			ID:     item.ID,
 			Title:  item.Title,
-			Body:   item.Body,
+			Note:   item.Note,
 			DueAt:  item.DueAt,
 			IsDone: false, // @TODO: remove hardcoded IsDone
 		})
@@ -108,7 +108,7 @@ func (t *TodoHandler) Update(c *gin.Context) {
 	}
 
 	t.db.Model(&todo).Update("title", c.PostForm("title"))
-	t.db.Model(&todo).Update("body", c.PostForm("body"))
+	t.db.Model(&todo).Update("note", c.PostForm("note"))
 	// completed, _ := strconv.Atoi(c.PostForm("completed"))
 	// t.db.Model(&todo).Update("completed", false) // @TODO: add ability to change IsDone status
 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo updated successfully!"})

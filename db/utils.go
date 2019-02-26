@@ -9,7 +9,7 @@ import (
 // Init starts the database
 func Init() (*gorm.DB, error) {
 	// open a db connection
-	db, err := gorm.Open("postgres", "host=0.0.0.0 port=5432 user=gotodos dbname=gotodos password=gotodos")
+	db, err := gorm.Open("postgres", "host=0.0.0.0 port=5432 user=gotodos dbname=gotodos password=gotodos sslmode=disable")
 	if err != nil {
 		return nil, err
 	}
