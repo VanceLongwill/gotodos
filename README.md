@@ -74,8 +74,8 @@ docker-compose down
 - open a `psql` shell in the container (this doesn't require a local postgres installation)
   ```
   docker exec --tty --interactive \
-  pg_gotodos psql \
-  -h localhost -U postgres -d postgres
+  gotodos_db_1 psql \
+  -h localhost -U gotodos -d postgres
   ```
 
 ***
