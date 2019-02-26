@@ -1,0 +1,3 @@
+CREATE DATABASE gotodos;
+CREATE USER gotodos WITH PASSWORD 'gotodos';
+GRANT ALL PRIVILEGES ON DATABASE "gotodos" to gotodos;

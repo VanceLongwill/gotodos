@@ -1,0 +1,13 @@
+version: "3"
+services:
+  # web: # @TODO
+  #   build: ./docker/web
+  #   image: gotodos_web:v1
+  #   ports:
+  #     - "5000:5000"
+  db:
+    build: ./docker/db
+    # context: ./docker/db
+    # image: gotodos_db:v1
+    ports:
+      - "5432:5432"
