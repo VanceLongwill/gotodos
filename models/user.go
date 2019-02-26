@@ -1,9 +1,6 @@
 package models
 
-import (
-	"github.com/jinzhu/gorm"
-	"time"
-)
+import "github.com/jinzhu/gorm"
 
 // User defines the shape of an application user
 type User struct {
