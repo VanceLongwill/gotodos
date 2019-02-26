@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 	"time"
 )
@@ -12,5 +13,14 @@ type Todo struct {
 	Note   string    `json: "note"`
 	DueAt  time.Time `json: "dueAt"`
 	IsDone bool      `json: "isDone"`
-	UserID uint
+	UUID   string    `json: "id"`
+}
+
+func (todo *Todo) BeforeCreate(scope *gorm.Scope) error {
+	uuid, uuidErr := uuid.NewV4()
+	if uuidErr != nil {
+		return uuidErr
+	}
+	scope.SetColumn("UUID", uuid)
+	return nil
 }
