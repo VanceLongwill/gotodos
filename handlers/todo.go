@@ -12,12 +12,16 @@ import (
 
 // TodoHandler wraps all handlers for Todos
 type TodoHandler struct {
-	db *gorm.DB
+	db     *gorm.DB
+	secret string
 }
 
 // NewTodoHandler creates a new TodoHandler
-func NewTodoHandler(db *gorm.DB) *TodoHandler {
-	return &TodoHandler{db}
+func NewTodoHandler(db *gorm.DB, secret string) *TodoHandler {
+	return &TodoHandler{
+		db:     db,
+		secret: secret,
+	}
 }
 
 // Create creates a new item of type Todo and stores it
@@ -27,16 +31,17 @@ func (t *TodoHandler) Create(c *gin.Context) {
 		Note:   c.PostForm("note"),  // @TODO sanitize
 		IsDone: false,
 	}
-	t.db.Save(&todo)
+	t.db.NewRecord(todo)
+	t.db.Create(&todo)
 	c.JSON(http.StatusCreated, gin.H{
 		"status":     http.StatusCreated,
 		"message":    "Todo item created successfully!",
-		"resourceId": todo.ID,
+		"resourceId": todo.UUID,
 	})
 }
 
 type transformedTodo struct {
-	ID     uint      `json: "id"`
+	ID     string    `json: "id"`
 	Title  string    `json: "title"`
 	Note   string    `json: "note"`
 	DueAt  time.Time `json: "dueAt"`
@@ -60,7 +65,7 @@ func (t *TodoHandler) GetAll(c *gin.Context) {
 
 	for _, item := range todos {
 		_todos = append(_todos, transformedTodo{
-			ID:     item.ID,
+			ID:     item.UUID,
 			Title:  item.Title,
 			Note:   item.Note,
 			DueAt:  item.DueAt,
@@ -87,7 +92,7 @@ func (t *TodoHandler) Get(c *gin.Context) {
 	}
 
 	_todo := transformedTodo{
-		ID:     todo.ID,
+		ID:     todo.UUID,
 		Title:  todo.Title,
 		DueAt:  todo.DueAt,
 		IsDone: false, // @TODO: remove hardcoded IsDone
