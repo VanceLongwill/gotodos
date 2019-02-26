@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // postgres driver for gorm
 	"github.com/vancelongwill/gotodos/models"
@@ -26,9 +27,15 @@ func NewTodoHandler(db *gorm.DB, secret string) *TodoHandler {
 
 // Create creates a new item of type Todo and stores it
 func (t *TodoHandler) Create(c *gin.Context) {
+	uuid, uuidErr := uuid.NewV4()
+	if uuidErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to save todo"})
+		return
+	}
 	todo := models.Todo{
 		Title:  c.PostForm("title"), // @TODO sanitize
 		Note:   c.PostForm("note"),  // @TODO sanitize
+		UUID:   uuid.String(),
 		IsDone: false,
 	}
 	t.db.NewRecord(todo)
@@ -58,7 +65,7 @@ func (t *TodoHandler) GetAll(c *gin.Context) {
 	if len(todos) <= 0 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  http.StatusNotFound,
-			"message": "Unable to find todo",
+			"message": "No todo items",
 		})
 		return
 	}

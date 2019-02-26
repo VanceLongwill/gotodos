@@ -3,6 +3,7 @@ package handlers
 import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // postgres driver for gorm
 	"github.com/vancelongwill/gotodos/models"
@@ -83,11 +84,18 @@ func (u *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
+	uuid, uuidErr := uuid.NewV4()
+	if uuidErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
+		return
+	}
+
 	user := models.User{
 		Email:     body.Email,
 		Password:  string(hashBytes),
 		FirstName: body.FirstName,
 		LastName:  body.LastName,
+		UUID:      uuid.String(),
 	}
 
 	u.db.NewRecord(user)
