@@ -10,29 +10,66 @@
 - Includes simple documentation (Readme.md)
 - Include Unit tests
 
+## Stack
+
+- Postgres for a database
+- Gorm for an database ORM
+- Gin for a http framework / routing
+- Docker for containerization
+
 ## Installation
 
-## DB
+## Running Locally
 
-- pull the postgres docker images using 
-    ```
-    docker pull postgres
-    ```
+- start all containers in background
+```
+docker-compose up -d
+```
 
-- create a volume to persist data
-    ```
-    docker volume create gotodos
-    ```
+- stop all running containers
+```
+docker-compose stop
+```
 
-- run the postgres container
+- remove all containers & volumes
+```
+docker-compose down
+```
+
+### Endpoints
+
+- **GET** `/api/v1/todos/`
+
+  Example
   ```
-  docker run -d --rm \
-  --name pg_gotodos \
-  -e POSTGRES_PASSWORD=gotodos \
-  -p 5000:5000 \
-  --mount source=gotodos,target=/var/lib/postgresql/data \
-  postgres
+  curl localhost:8080/api/v1/todos/
   ```
+- **POST** `/api/v1/todos/`
+
+  Example
+  ```
+  curl -X POST localhost:8080/api/v1/todos/-d title="second" -d note="hello world"
+  ```
+- **GET** `/api/v1/todos/:id`
+
+  Example
+  ```
+  curl localhost:8080/api/v1/todos/
+  ```
+- **DELETE** `/api/v1/todos/:id`
+
+  Example
+  ```
+  curl -X DELETE localhost:8080/api/v1/todos/3
+  ```
+- **PUT** `/api/v1/todos/:id`
+
+  Example
+  ```
+  curl -X PUT localhost:8080/api/v1/todos/1 -d title="second" -d note="hello world"
+  ```
+
+## DB Admin
 
 - open a `psql` shell in the container (this doesn't require a local postgres installation)
   ```
