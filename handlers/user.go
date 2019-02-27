@@ -7,6 +7,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // postgres driver for gorm
+	"github.com/vancelongwill/gotodos/middleware"
 	"github.com/vancelongwill/gotodos/models"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -14,10 +15,13 @@ import (
 	// "strconv"
 )
 
-func createToken(data map[string]interface{}, expireTime time.Time, secret string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"data":      data,
-		"expiresAt": expireTime.Unix(),
+func createToken(userID uint, expireTime time.Time, secret string) (string, error) {
+	type Claims = middleware.UserClaims
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
+		ID: userID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expireTime.Unix(),
+		},
 	})
 	return token.SignedString([]byte(secret))
 }
@@ -102,25 +106,20 @@ func (u *UserHandler) Register(c *gin.Context) {
 	u.db.NewRecord(user)
 	u.db.Create(&user)
 
-	serializedUser := map[string]interface{}{
-		"id":        user.UUID,
-		"firstName": user.FirstName,
-		"lastName":  user.LastName,
-		"email":     user.Email,
-	}
+	expiryInterval := 60 * 60 * 24 * 7
 	expiry := time.Now().Add(time.Hour * 24 * 7)
 
-	token, tokenErr := createToken(serializedUser, expiry, u.secret)
+	token, tokenErr := createToken(user.ID, expiry, u.secret)
 	if tokenErr != nil {
 		fmt.Println(tokenErr.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
 		return
 	}
 
-	c.SetCookie("token", token, 60*60*24*7, "/", "", false, true)
+	c.SetCookie("token", token, expiryInterval, "/", "", false, true)
 	c.JSON(http.StatusCreated, gin.H{
 		"status":     http.StatusCreated,
-		"user":       serializedUser,
+		"email":      user.Email,
 		"token":      token,
 		"resourceId": user.UUID,
 		"message":    "User registered successfully!",
@@ -155,25 +154,21 @@ func (u *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	serializedUser := map[string]interface{}{
-		"id":        user.UUID,
-		"firstName": user.FirstName,
-		"lastName":  user.LastName,
-		"email":     user.Email,
-	}
-
 	expiry := time.Now().Add(time.Hour * 24 * 7)
-	token, tokenErr := createToken(serializedUser, expiry, u.secret)
+	expiryInterval := 60 * 60 * 24 * 7
+
+	token, tokenErr := createToken(user.ID, expiry, u.secret)
 	if tokenErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to login"})
 		return
 	}
 
-	c.SetCookie("token", token, 60*60*24*7, "/", "", false, true)
+	c.SetCookie("token", token, expiryInterval, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{
-		"status":  http.StatusOK,
-		"user":    serializedUser,
-		"token":   token,
-		"message": "User logged in successfully!",
+		"status":     http.StatusOK,
+		"email":      user.Email,
+		"resourceId": user.UUID,
+		"token":      token,
+		"message":    "User logged in successfully!",
 	})
 }

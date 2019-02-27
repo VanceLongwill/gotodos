@@ -82,15 +82,6 @@ func (t *TodoHandler) GetAll(c *gin.Context) {
 		}
 	}
 
-	// jsonData, jsonErr := json.Marshal(data)
-	// if jsonErr != nil {
-	// 	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-	// 		"status":  http.StatusNotFound,
-	// 		"message": "Error processing todos",
-	// 	})
-	// 	return
-	// }
-
 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": data})
 }
 
