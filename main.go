@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/vancelongwill/gotodos/db"
 	"github.com/vancelongwill/gotodos/handlers"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
@@ -23,10 +23,22 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	jwtSecret, jwtFound := env["JWT_SECRET"]
 
+	jwtSecret, jwtFound := env["JWT_SECRET"]
 	if !jwtFound {
 		log.Fatal("JWT_SECRET must be present in .env")
+	}
+
+	versionNo, versionFound := env["API_VERSION"]
+	if !versionFound {
+		versionNo = "1"
+	}
+
+	version := fmt.Sprintf("v%s", versionNo)
+
+	port, portFound := env["API_PORT"]
+	if !portFound {
+		port = "8080"
 	}
 
 	db, dbErr := db.Init()
@@ -38,8 +50,6 @@ func main() {
 	app.GET("/ping", ping)
 
 	apiPrefix := "api"
-	version := "v1"
-	port := "8080"
 
 	todoHandler := handlers.NewTodoHandler(db, jwtSecret)
 
@@ -47,6 +57,7 @@ func main() {
 	// per group middleware! in this case we use the custom created
 	// AuthRequired() middleware just in the "authorized" group.
 	// authorized.Use(AuthRequired())
+	// todoRouter.use()
 	{
 		todoRouter.GET("/", todoHandler.GetAll)
 		todoRouter.POST("/", todoHandler.Create)

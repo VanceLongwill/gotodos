@@ -14,22 +14,22 @@ import (
 	// "strconv"
 )
 
-func createToken(data map[string]interface{}, expireTime time.Time, secret []byte) (string, error) {
+func createToken(data map[string]interface{}, expireTime time.Time, secret string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"data":      data,
 		"expiresAt": expireTime.Unix(),
 	})
-	return token.SignedString(secret)
+	return token.SignedString([]byte(secret))
 }
 
 // UserHandler wraps all handlers for application Users
 type UserHandler struct {
 	db     *gorm.DB
-	secret []byte
+	secret string
 }
 
 // NewUserHandler creates a new UserHandler
-func NewUserHandler(db *gorm.DB, secret []byte) *UserHandler {
+func NewUserHandler(db *gorm.DB, secret string) *UserHandler {
 	return &UserHandler{
 		db:     db,
 		secret: secret,

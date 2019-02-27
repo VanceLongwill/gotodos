@@ -16,11 +16,11 @@ import (
 // TodoHandler wraps all handlers for Todos
 type TodoHandler struct {
 	db     *gorm.DB
-	secret []byte
+	secret string
 }
 
 // NewTodoHandler creates a new TodoHandler
-func NewTodoHandler(db *gorm.DB, secret []byte) *TodoHandler {
+func NewTodoHandler(db *gorm.DB, secret string) *TodoHandler {
 	return &TodoHandler{
 		db:     db,
 		secret: secret,
