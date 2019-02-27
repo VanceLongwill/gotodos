@@ -18,22 +18,28 @@ func ping(c *gin.Context) {
 }
 
 func main() {
-	app := gin.Default()
-	app.GET("/ping", ping)
+	var env map[string]string
+	env, err := godotenv.Read()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	jwtSecret, jwtFound := env["JWT_SECRET"]
 
-	apiPrefix := "api"
-	version := "v1"
-	port := "8080"
-
-	jwtSecret, readErr := ioutil.ReadFile("jwtsecret.key")
-	if readErr != nil {
-		log.Fatal("Error reading jwt token:\t", readErr)
+	if !jwtFound {
+		log.Fatal("JWT_SECRET must be present in .env")
 	}
 
 	db, dbErr := db.Init()
 	if dbErr != nil {
 		log.Fatal("Error initialising database:\t", dbErr)
 	}
+
+	app := gin.Default()
+	app.GET("/ping", ping)
+
+	apiPrefix := "api"
+	version := "v1"
+	port := "8080"
 
 	todoHandler := handlers.NewTodoHandler(db, jwtSecret)
 
