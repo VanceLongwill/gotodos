@@ -6,6 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/vancelongwill/gotodos/db"
 	"github.com/vancelongwill/gotodos/handlers"
+	"github.com/vancelongwill/gotodos/middleware"
 	"log"
 	"net/http"
 	"path"
@@ -54,10 +55,8 @@ func main() {
 	todoHandler := handlers.NewTodoHandler(db, jwtSecret)
 
 	todoRouter := app.Group(path.Join(apiPrefix, version, "todos"))
-	// per group middleware! in this case we use the custom created
-	// AuthRequired() middleware just in the "authorized" group.
-	// authorized.Use(AuthRequired())
-	// todoRouter.use()
+	// Per group authorization middleware
+	todoRouter.Use(middleware.Authorize(jwtSecret))
 	{
 		todoRouter.GET("/", todoHandler.GetAll)
 		todoRouter.POST("/", todoHandler.Create)

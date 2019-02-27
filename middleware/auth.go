@@ -13,23 +13,6 @@ type UserClaims struct {
 	jwt.StandardClaims      // includes ExpiresAt
 }
 
-// InvalidTokenError is used to distinguish between different errors in Authorization middleware
-var InvalidTokenError error
-
-func validateToken(inToken string, claims *UserClaims) error {
-	token, err := jwt.ParseWithClaims(inToken, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(inToken), nil
-	})
-
-	if err != nil {
-		return err
-	}
-	if !token.Valid {
-		return InvalidTokenError
-	}
-	return nil
-}
-
 // Authorize blocks unauthorized requests
 func Authorize(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -55,18 +38,31 @@ func Authorize(jwtSecret string) gin.HandlerFunc {
 		}
 
 		var claims UserClaims
-		if err := validateToken(tokenString, &claims); err != nil {
-			if err == jwt.ErrSignatureInvalid || err == InvalidTokenError {
+
+		token, tokenErr := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(jwtSecret), nil
+		})
+
+		if tokenErr != nil {
+			if tokenErr == jwt.ErrSignatureInvalid {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"status":  http.StatusUnauthorized,
-					"message": "Invalid token",
+					"message": "Invalid signature",
 				})
 			} else {
 				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 					"status":  http.StatusBadRequest,
-					"message": "Unable to parse token",
+					"message": "Invalid token",
 				})
 			}
+			return
+		}
+
+		if !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status":  http.StatusUnauthorized,
+				"message": "Invalid token",
+			})
 			return
 		}
 
