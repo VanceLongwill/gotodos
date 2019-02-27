@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vancelongwill/gotodos/db"
 	"github.com/vancelongwill/gotodos/handlers"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
@@ -23,7 +24,11 @@ func main() {
 	apiPrefix := "api"
 	version := "v1"
 	port := "8080"
-	jwtSecret := "somesecretkey"
+
+	jwtSecret, readErr := ioutil.ReadFile("jwtsecret.key")
+	if readErr != nil {
+		log.Fatal("Error reading jwt token:\t", readErr)
+	}
 
 	db, dbErr := db.Init()
 	if dbErr != nil {

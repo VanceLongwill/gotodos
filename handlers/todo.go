@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	// "encoding/json"
+	// "fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
@@ -14,11 +16,11 @@ import (
 // TodoHandler wraps all handlers for Todos
 type TodoHandler struct {
 	db     *gorm.DB
-	secret string
+	secret []byte
 }
 
 // NewTodoHandler creates a new TodoHandler
-func NewTodoHandler(db *gorm.DB, secret string) *TodoHandler {
+func NewTodoHandler(db *gorm.DB, secret []byte) *TodoHandler {
 	return &TodoHandler{
 		db:     db,
 		secret: secret,
@@ -58,7 +60,6 @@ type transformedTodo struct {
 // GetAll returns a all the current User's Todos
 func (t *TodoHandler) GetAll(c *gin.Context) {
 	var todos []models.Todo
-	var _todos []transformedTodo
 
 	t.db.Find(&todos)
 
@@ -70,17 +71,27 @@ func (t *TodoHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	for _, item := range todos {
-		_todos = append(_todos, transformedTodo{
+	data := make([]transformedTodo, len(todos))
+	for i, item := range todos {
+		data[i] = transformedTodo{
 			ID:     item.UUID,
 			Title:  item.Title,
 			Note:   item.Note,
 			DueAt:  item.DueAt,
 			IsDone: false, // @TODO: remove hardcoded IsDone
-		})
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": _todos})
+	// jsonData, jsonErr := json.Marshal(data)
+	// if jsonErr != nil {
+	// 	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+	// 		"status":  http.StatusNotFound,
+	// 		"message": "Error processing todos",
+	// 	})
+	// 	return
+	// }
+
+	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": data})
 }
 
 // Get returns a single Todo by ID

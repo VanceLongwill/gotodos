@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
@@ -13,7 +14,7 @@ import (
 	// "strconv"
 )
 
-func createToken(data map[string]interface{}, expireTime time.Time, secret string) (string, error) {
+func createToken(data map[string]interface{}, expireTime time.Time, secret []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"data":      data,
 		"expiresAt": expireTime.Unix(),
@@ -24,11 +25,11 @@ func createToken(data map[string]interface{}, expireTime time.Time, secret strin
 // UserHandler wraps all handlers for application Users
 type UserHandler struct {
 	db     *gorm.DB
-	secret string
+	secret []byte
 }
 
 // NewUserHandler creates a new UserHandler
-func NewUserHandler(db *gorm.DB, secret string) *UserHandler {
+func NewUserHandler(db *gorm.DB, secret []byte) *UserHandler {
 	return &UserHandler{
 		db:     db,
 		secret: secret,
@@ -73,8 +74,8 @@ func (u *UserHandler) Register(c *gin.Context) {
 	}
 
 	var existingUser models.User
-	if err := u.db.Where("email = ?", body.Email).First(&existingUser).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to login"})
+	if err := u.db.Where("email = ?", body.Email).First(&existingUser).Error; err == nil {
+		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Email already used"})
 		return
 	}
 
@@ -111,6 +112,7 @@ func (u *UserHandler) Register(c *gin.Context) {
 
 	token, tokenErr := createToken(serializedUser, expiry, u.secret)
 	if tokenErr != nil {
+		fmt.Println(tokenErr.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
 		return
 	}
@@ -144,7 +146,7 @@ func (u *UserHandler) Login(c *gin.Context) {
 
 	var user models.User
 	if err := u.db.Where("email = ?", body.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to login"})
+		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "User not found"})
 		return
 	}
 
