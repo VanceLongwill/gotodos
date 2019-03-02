@@ -28,29 +28,24 @@ func (t *Todo) Serialize() map[string]interface{} {
 	return mappedTodo
 }
 
-const (
-	timestampFormat = "2016-06-22 19:10:25"
-)
-
-func CreateTodo(db *sql.DB, t *Todo) (*Todo, error) {
+func CreateTodo(db *sql.DB, t *Todo) error {
 	sqlStatement := `
 	INSERT INTO todos (title, note, created_at, modified_at, due_at, user_id)
-	VALUES ($1, $2, $3, $4, $5)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id;`
 
 	var newTodo Todo
 	currentTime := time.Now()
-	formattedTime := currentTime.Format(timestampFormat)
-	err := db.QueryRow(sqlStatement, t.Title, t.Note, formattedTime, formattedTime, formattedTime).Scan(&newTodo.ID)
+	err := db.QueryRow(sqlStatement, t.Title, t.Note, currentTime, currentTime, currentTime, t.UserID).Scan(&newTodo.ID)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &newTodo, nil
+	return nil
 }
 
 func GetAllTodos(db *sql.DB, userID uint) ([]*Todo, error) {
 	sqlStatement := `
-	SELECT * FROM todos where user_id = $1
+	SELECT * FROM todos WHERE user_id = $1
 	LIMIT $2;`
 	rows, err := db.Query(sqlStatement, userID, 10) //@TODO pagination
 
@@ -72,11 +67,12 @@ func GetAllTodos(db *sql.DB, userID uint) ([]*Todo, error) {
 
 func GetTodo(db *sql.DB, t *Todo) (*Todo, error) {
 	sqlStatement := "SELECT * FROM todos WHERE id = $1 AND user_id = $2"
-	err := db.QueryRow(sqlStatement, t.ID, t.UserID).Scan(&t.ID, &t.Title, &t.Note, &t.CreatedAt, &t.ModifiedAt, &t.DueAt, &t.UserID, &t.IsDone)
+	todo := new(Todo)
+	err := db.QueryRow(sqlStatement, todo.ID, todo.UserID).Scan(&todo.ID, &todo.Title, &todo.Note, &todo.CreatedAt, &todo.ModifiedAt, &todo.DueAt, &todo.UserID, &todo.IsDone)
 	if err != nil {
 		return nil, err
 	}
-	return t, nil
+	return todo, nil
 }
 
 func UpdateTodo(db *sql.DB, t *Todo) (*Todo, error) {
@@ -86,13 +82,14 @@ func UpdateTodo(db *sql.DB, t *Todo) (*Todo, error) {
 	WHERE id = $1 AND user_id = $2;`
 
 	currentTime := time.Now()
-	formattedTime := currentTime.Format(timestampFormat)
 
-	execErr := db.QueryRow(sqlStatement, t.ID, t.UserID, t.Title, t.Note, formattedTime).Scan(&t.ID, &t.Title, &t.Note, &t.CreatedAt, &t.ModifiedAt, &t.DueAt, &t.UserID, &t.IsDone)
+	todo := new(Todo)
+
+	execErr := db.QueryRow(sqlStatement, todo.ID, todo.UserID, todo.Title, todo.Note, currentTime).Scan(&todo.ID, &todo.Title, &todo.Note, &todo.CreatedAt, &todo.ModifiedAt, &todo.DueAt, &todo.UserID, &todo.IsDone)
 	if execErr != nil {
 		return nil, execErr
 	}
-	return t, nil
+	return todo, nil
 }
 
 func DeleteTodo(db *sql.DB, t *Todo) (*Todo, error) {
