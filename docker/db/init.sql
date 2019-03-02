@@ -13,9 +13,11 @@ CREATE TABLE todos (
   id SERIAL PRIMARY KEY,
   title TEXT,
   note TEXT,
-  created_at TIMESTAMP NOT NULL,
-  modified_at TIMESTAMP NOT NULL,
-  author_id INTEGER REFERENCES users(id)
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  modified_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  due_at TIMESTAMP,
+  user_id INTEGER REFERENCES users(id),
+  is_done BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- @TODO: Implement a todo tagging system
