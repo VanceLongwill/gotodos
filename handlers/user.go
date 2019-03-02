@@ -1,12 +1,9 @@
 package handlers
 
 import (
-	"fmt"
+	"database/sql"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/gofrs/uuid"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres" // postgres driver for gorm
 	"github.com/vancelongwill/gotodos/middleware"
 	"github.com/vancelongwill/gotodos/models"
 	"golang.org/x/crypto/bcrypt"
@@ -28,12 +25,12 @@ func createToken(userID uint, expireTime time.Time, secret string) (string, erro
 
 // UserHandler wraps all handlers for application Users
 type UserHandler struct {
-	db     *gorm.DB
+	db     *sql.DB
 	secret string
 }
 
 // NewUserHandler creates a new UserHandler
-func NewUserHandler(db *gorm.DB, secret string) *UserHandler {
+func NewUserHandler(db *sql.DB, secret string) *UserHandler {
 	return &UserHandler{
 		db:     db,
 		secret: secret,
@@ -41,20 +38,20 @@ func NewUserHandler(db *gorm.DB, secret string) *UserHandler {
 }
 
 // Delete deletes a single application user
-func (u *UserHandler) Delete(c *gin.Context) {
-	var user models.User
-	userID := c.Param("id")
-
-	u.db.First(&user, userID)
-
-	if user.ID == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find user"})
-		return
-	}
-
-	u.db.Delete(&user)
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "User deleted successfully!"})
-}
+// func (u *UserHandler) Delete(c *gin.Context) {
+// 	var user models.User
+// 	userID := c.Param("id")
+//
+// 	u.db.First(&user, userID)
+//
+// 	if user.ID == 0 {
+// 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find user"})
+// 		return
+// 	}
+//
+// 	u.db.Delete(&user)
+// 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "User deleted successfully!"})
+// }
 
 // @TODO: type all requests and responses like below, adding required fields etc & error handling for bad requests
 
@@ -77,20 +74,14 @@ func (u *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	var existingUser models.User
-	if err := u.db.Where("email = ?", body.Email).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Email already used"})
-		return
-	}
+	// var existingUser models.User
+	// if err := u.db.Where("email = ?", body.Email).First(&existingUser).Error; err == nil {
+	// 	c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Email already used"})
+	// 	return
+	// }
 
 	hashBytes, hashErr := bcrypt.GenerateFromPassword([]byte(body.Password), 12)
 	if hashErr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
-		return
-	}
-
-	uuid, uuidErr := uuid.NewV4()
-	if uuidErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
 		return
 	}
@@ -100,18 +91,19 @@ func (u *UserHandler) Register(c *gin.Context) {
 		Password:  string(hashBytes),
 		FirstName: body.FirstName,
 		LastName:  body.LastName,
-		UUID:      uuid.String(),
 	}
 
-	u.db.NewRecord(user)
-	u.db.Create(&user)
+	newUser, err := models.CreateUser(u.db, &user)
 
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
+		return
+	}
 	expiryInterval := 60 * 60 * 24 * 7
 	expiry := time.Now().Add(time.Hour * 24 * 7)
 
 	token, tokenErr := createToken(user.ID, expiry, u.secret)
 	if tokenErr != nil {
-		fmt.Println(tokenErr.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
 		return
 	}
@@ -121,7 +113,7 @@ func (u *UserHandler) Register(c *gin.Context) {
 		"status":     http.StatusCreated,
 		"email":      user.Email,
 		"token":      token,
-		"resourceId": user.UUID,
+		"resourceId": newUser.ID,
 		"message":    "User registered successfully!",
 	})
 }
@@ -142,9 +134,10 @@ func (u *UserHandler) Login(c *gin.Context) {
 		})
 		return
 	}
+	reqUser := models.User{Email: body.Email, Password: body.Password}
+	user, err := models.GetUser(u.db, &reqUser)
 
-	var user models.User
-	if err := u.db.Where("email = ?", body.Email).First(&user).Error; err != nil {
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "User not found"})
 		return
 	}
@@ -167,7 +160,7 @@ func (u *UserHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":     http.StatusOK,
 		"email":      user.Email,
-		"resourceId": user.UUID,
+		"resourceId": user.ID,
 		"token":      token,
 		"message":    "User logged in successfully!",
 	})
