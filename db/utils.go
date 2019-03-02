@@ -1,23 +1,22 @@
 package db
 
 import (
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres" // postgres driver for gorm
-	"github.com/vancelongwill/gotodos/models"
+	"database/sql"
+	"fmt"
+	_ "github.com/lib/pq"
 )
 
-// Init starts the database
-func Init() (*gorm.DB, error) {
+func Init(host, port, user, password, dbname string) (*sql.DB, error) {
 	// open a db connection
-	db, err := gorm.Open("postgres", "host=0.0.0.0 port=5432 user=gotodos dbname=gotodos password=gotodos sslmode=disable")
+	connectString := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+	db, err := sql.Open("postgres", connectString)
 	if err != nil {
 		return nil, err
 	}
-
-	// Migrate the schema
-	db.AutoMigrate(&models.Todo{}, &models.User{})
-	db.Model(&models.Todo{}).AddForeignKey("user_id", "users(id)", "CASCADE", "CASCADE")
-	db.LogMode(true)
-
+	if connectErr := db.Ping(); connectErr != nil {
+		return nil, connectErr
+	}
 	return db, nil
 }
