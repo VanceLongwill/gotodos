@@ -3,14 +3,32 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/vancelongwill/gotodos/db"
 	"github.com/vancelongwill/gotodos/handlers"
 	"github.com/vancelongwill/gotodos/middleware"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
 )
+
+const (
+	apiVersion = "v1"
+	apiPrefix  = "api"
+	apiPort    = 8080
+)
+
+func getSecret() string {
+	fn := "jwtsecret.key"
+	key, err := ioutil.ReadFile(fn)
+	if err != nil {
+		log.Fatal("Error reading from: ", fn, err)
+	}
+	if len(key) == 0 {
+		log.Fatal("Empty jwt key")
+	}
+	return string(key)
+}
 
 func ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
@@ -19,43 +37,19 @@ func ping(c *gin.Context) {
 }
 
 func main() {
-	var env map[string]string
-	env, err := godotenv.Read()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	jwtSecret, jwtFound := env["JWT_SECRET"]
-	if !jwtFound {
-		log.Fatal("JWT_SECRET must be present in .env")
-	}
-
-	versionNo, versionFound := env["API_VERSION"]
-	if !versionFound {
-		versionNo = "1"
-	}
-
-	version := fmt.Sprintf("v%s", versionNo)
-
-	port, portFound := env["API_PORT"]
-	if !portFound {
-		port = "8080"
-	}
-
-	db, dbErr := db.Init()
+	db, dbErr := db.Init("0.0.0.0", "5432", "gotodos", "gotodos", "gotodos")
 	if dbErr != nil {
 		log.Fatal("Error initialising database:\t", dbErr)
 	}
 
+	jwtSecret := getSecret()
 	app := gin.Default()
 	app.GET("/ping", ping)
 
-	apiPrefix := "api"
-
 	todoHandler := handlers.NewTodoHandler(db, jwtSecret)
 
-	todoRouter := app.Group(path.Join(apiPrefix, version, "todos"))
-	// Per group authorization middleware
+	todoRouter := app.Group(path.Join(apiPrefix, apiVersion, "todos"))
+
 	todoRouter.Use(middleware.Authorize(jwtSecret))
 	{
 		todoRouter.GET("/", todoHandler.GetAll)
@@ -66,11 +60,11 @@ func main() {
 	}
 
 	userHandler := handlers.NewUserHandler(db, jwtSecret)
-	userRouter := app.Group(path.Join(apiPrefix, version, "user"))
+	userRouter := app.Group(path.Join(apiPrefix, apiVersion, "user"))
 	{
 		userRouter.POST("/login", userHandler.Login)
 		userRouter.POST("/register", userHandler.Register)
 	}
 
-	app.Run(fmt.Sprintf(":%s", port))
+	app.Run(fmt.Sprintf(":%d", apiPort))
 }
