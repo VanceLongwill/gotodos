@@ -117,7 +117,7 @@ func (t *TodoHandler) Get(c *gin.Context) {
 
 	todoID := stringToUint(c.Param("id"))
 
-	todo, err := models.GetTodo(t.db, &models.Todo{ID: todoID})
+	todo, err := models.GetTodo(t.db, todoID, userID)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -163,13 +163,12 @@ func (t *TodoHandler) Delete(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	todoID := stringToUint(c.Param("id"))
 
-	todo := models.Todo{ID: todoID, UserID: userID}
-	deletedTodo, err := models.DeleteTodo(t.db, &todo)
+	deletedTodoID, err := models.DeleteTodo(t.db, todoID, userID)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo deleted successfully!", "resourceId": deletedTodo.ID})
+	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo deleted successfully!", "resourceId": deletedTodoID})
 }
