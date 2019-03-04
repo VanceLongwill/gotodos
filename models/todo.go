@@ -24,9 +24,18 @@ func (t *Todo) Serialize() map[string]interface{} {
 		"id":     t.ID,
 		"title":  t.Title,
 		"note":   t.Note,
-		"dueAt":  t.DueAt,
-		"isDone": false, // @TODO remove constant
+		"isDone": t.IsDone, // @TODO remove constant
 	}
+	if t.DueAt.Valid {
+		mappedTodo["dueAt"] = t.DueAt
+	} else {
+		mappedTodo["dueAt"] = nil
+	}
+
+	if t.CompletedAt.Valid {
+		mappedTodo["completedAt"] = t.CompletedAt
+	}
+
 	return mappedTodo
 }
 
