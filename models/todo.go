@@ -8,9 +8,9 @@ import (
 
 // Todo defines the shape of a single todo item
 type Todo struct {
-	ID          uint // `gorm:"type:bigint(20) unsigned auto_increment;primary_key"`
-	Title       string
-	Note        string
+	ID          uint
+	Title       sql.NullString
+	Note        sql.NullString
 	CreatedAt   time.Time
 	ModifiedAt  time.Time
 	DueAt       pq.NullTime
@@ -19,20 +19,27 @@ type Todo struct {
 	IsDone      bool
 }
 
+const (
+	resultsPerPage = 10
+)
+
 func (t *Todo) Serialize() map[string]interface{} {
 	mappedTodo := map[string]interface{}{
-		"id":     t.ID,
-		"title":  t.Title,
-		"note":   t.Note,
-		"isDone": t.IsDone, // @TODO remove constant
+		"id":         t.ID,
+		"isDone":     t.IsDone,
+		"createdAt":  t.CreatedAt,
+		"modifiedAt": t.ModifiedAt,
 	}
 
+	if t.Title.Valid {
+		mappedTodo["title"] = t.Title
+	}
+	if t.Note.Valid {
+		mappedTodo["note"] = t.Note
+	}
 	if t.DueAt.Valid {
 		mappedTodo["dueAt"] = t.DueAt
-	} else {
-		mappedTodo["dueAt"] = nil
 	}
-
 	if t.CompletedAt.Valid {
 		mappedTodo["completedAt"] = t.CompletedAt
 	}
@@ -56,11 +63,11 @@ func CreateTodo(db *sql.DB, t *Todo) error {
 	return nil
 }
 
-func GetAllTodos(db *sql.DB, userID uint) ([]*Todo, error) {
+func GetAllTodos(db *sql.DB, userID, previousID uint) ([]*Todo, error) {
 	sqlStatement := `
-	SELECT * FROM todos WHERE user_id = $1
+	SELECT * FROM todos WHERE user_id = $1 AND id > $3
 	LIMIT $2;`
-	rows, err := db.Query(sqlStatement, userID, 10) //@TODO pagination
+	rows, err := db.Query(sqlStatement, userID, resultsPerPage, previousID)
 
 	defer rows.Close()
 
@@ -68,7 +75,7 @@ func GetAllTodos(db *sql.DB, userID uint) ([]*Todo, error) {
 	for rows.Next() {
 		t := new(Todo)
 		if err := rows.
-			Scan(&t.ID, &t.Title, &t.Note, &t.CreatedAt, &t.ModifiedAt, &t.DueAt, &t.UserID, &t.IsDone); err != nil {
+			Scan(&t.ID, &t.Title, &t.Note, &t.CreatedAt, &t.ModifiedAt, &t.DueAt, &t.UserID, &t.CompletedAt, &t.IsDone); err != nil {
 			return nil, err
 		}
 		todos = append(todos, t)

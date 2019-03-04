@@ -6,20 +6,23 @@ import (
 
 // User defines the shape of an application user
 type User struct {
-	ID        uint   `json: "id"` // `gorm:"type:bigint(20) unsigned auto_increment;primary_key"`
-	Email     string `json: "email"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Password  string `json:"password"`
-	// Todos     []Todo // `gorm:"ForeignKey:UserID"`
+	ID        uint
+	Email     string
+	FirstName sql.NullString
+	LastName  sql.NullString
+	Password  string
 }
 
 func (u *User) Serialize() map[string]interface{} {
 	mappedUser := map[string]interface{}{
-		"id":        u.ID,
-		"email":     u.Email,
-		"firstName": u.FirstName,
-		"LastName":  u.LastName,
+		"id":    u.ID,
+		"email": u.Email,
+	}
+	if u.FirstName.Valid {
+		mappedUser["firstName"] = u.FirstName
+	}
+	if u.LastName.Valid {
+		mappedUser["lastName"] = u.LastName
 	}
 	return mappedUser
 }

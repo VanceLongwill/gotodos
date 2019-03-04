@@ -14,7 +14,7 @@ type UserClaims struct {
 }
 
 // Authorize blocks unauthorized requests
-func Authorize(jwtSecret string) gin.HandlerFunc {
+func Authorize(jwtSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, cookieErr := c.Cookie("token")
 		if cookieErr != nil { // No token cookie provided
@@ -40,7 +40,7 @@ func Authorize(jwtSecret string) gin.HandlerFunc {
 		var claims UserClaims
 
 		token, tokenErr := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
+			return jwtSecret, nil
 		})
 
 		if tokenErr != nil {

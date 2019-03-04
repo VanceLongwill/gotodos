@@ -12,7 +12,7 @@ import (
 	// "strconv"
 )
 
-func createToken(userID uint, expireTime time.Time, secret string) (string, error) {
+func createToken(userID uint, expireTime time.Time, secret []byte) (string, error) {
 	type Claims = middleware.UserClaims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
 		ID: userID,
@@ -20,40 +20,22 @@ func createToken(userID uint, expireTime time.Time, secret string) (string, erro
 			ExpiresAt: expireTime.Unix(),
 		},
 	})
-	return token.SignedString([]byte(secret))
+	return token.SignedString(secret)
 }
 
 // UserHandler wraps all handlers for application Users
 type UserHandler struct {
 	db     *sql.DB
-	secret string
+	secret []byte
 }
 
 // NewUserHandler creates a new UserHandler
-func NewUserHandler(db *sql.DB, secret string) *UserHandler {
+func NewUserHandler(db *sql.DB, secret []byte) *UserHandler {
 	return &UserHandler{
 		db:     db,
 		secret: secret,
 	}
 }
-
-// Delete deletes a single application user
-// func (u *UserHandler) Delete(c *gin.Context) {
-// 	var user models.User
-// 	userID := c.Param("id")
-//
-// 	u.db.First(&user, userID)
-//
-// 	if user.ID == 0 {
-// 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find user"})
-// 		return
-// 	}
-//
-// 	u.db.Delete(&user)
-// 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "User deleted successfully!"})
-// }
-
-// @TODO: type all requests and responses like below, adding required fields etc & error handling for bad requests
 
 // RegisterRequest specifies the request body shape for registering a new application user
 type RegisterRequest struct {
@@ -74,12 +56,6 @@ func (u *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// var existingUser models.User
-	// if err := u.db.Where("email = ?", body.Email).First(&existingUser).Error; err == nil {
-	// 	c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Email already used"})
-	// 	return
-	// }
-
 	hashBytes, hashErr := bcrypt.GenerateFromPassword([]byte(body.Password), 12)
 	if hashErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
@@ -89,8 +65,8 @@ func (u *UserHandler) Register(c *gin.Context) {
 	user := models.User{
 		Email:     body.Email,
 		Password:  string(hashBytes),
-		FirstName: body.FirstName,
-		LastName:  body.LastName,
+		FirstName: sql.NullString{body.FirstName, true},
+		LastName:  sql.NullString{body.LastName, true},
 	}
 
 	newUser, err := models.CreateUser(u.db, &user)

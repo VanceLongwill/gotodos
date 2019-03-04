@@ -13,11 +13,11 @@ import (
 // TodoHandler wraps all handlers for Todos
 type TodoHandler struct {
 	db     *sql.DB
-	secret string
+	secret []byte
 }
 
 // NewTodoHandler creates a new TodoHandler
-func NewTodoHandler(db *sql.DB, secret string) *TodoHandler {
+func NewTodoHandler(db *sql.DB, secret []byte) *TodoHandler {
 	return &TodoHandler{
 		db:     db,
 		secret: secret,
@@ -52,8 +52,8 @@ func (t *TodoHandler) Create(c *gin.Context) {
 	}
 
 	todo := models.Todo{
-		Title:  body.Title, // @TODO sanitize
-		Note:   body.Note,  // @TODO sanitize
+		Title:  sql.NullString{body.Title, true},
+		Note:   sql.NullString{body.Note, true},
 		UserID: userID,
 		IsDone: false,
 	}
@@ -85,7 +85,11 @@ type transformedTodo struct {
 // GetAll returns a all the current User's Todos
 func (t *TodoHandler) GetAll(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
-	todos, err := models.GetAllTodos(t.db, userID)
+
+	prev := c.DefaultQuery("prev", "0") // use previous id for pagination
+	previousID := stringToUint(prev)
+
+	todos, err := models.GetAllTodos(t.db, userID, previousID)
 	if err != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusNotFound, gin.H{

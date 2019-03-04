@@ -18,7 +18,7 @@ const (
 	apiPort    = 8080
 )
 
-func getSecret() string {
+func getSecret() []byte {
 	fn := "jwtsecret.key"
 	key, err := ioutil.ReadFile(fn)
 	if err != nil {
@@ -27,7 +27,7 @@ func getSecret() string {
 	if len(key) == 0 {
 		log.Fatal("Empty jwt key")
 	}
-	return string(key)
+	return key
 }
 
 func ping(c *gin.Context) {
