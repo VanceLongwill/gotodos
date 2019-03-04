@@ -2,19 +2,21 @@ package models
 
 import (
 	"database/sql"
+	"github.com/lib/pq"
 	"time"
 )
 
 // Todo defines the shape of a single todo item
 type Todo struct {
-	ID         uint // `gorm:"type:bigint(20) unsigned auto_increment;primary_key"`
-	Title      string
-	Note       string
-	CreatedAt  string
-	ModifiedAt string
-	DueAt      string
-	UserID     uint
-	IsDone     bool
+	ID          uint // `gorm:"type:bigint(20) unsigned auto_increment;primary_key"`
+	Title       string
+	Note        string
+	CreatedAt   time.Time
+	ModifiedAt  time.Time
+	DueAt       pq.NullTime
+	CompletedAt pq.NullTime
+	UserID      uint
+	IsDone      bool
 }
 
 func (t *Todo) Serialize() map[string]interface{} {
