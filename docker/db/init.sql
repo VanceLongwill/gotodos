@@ -16,8 +16,8 @@ CREATE TABLE todos (
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   modified_at TIMESTAMP NOT NULL DEFAULT NOW(),
   due_at TIMESTAMP,
-  completed_at TIMESTAMP,
   user_id INTEGER REFERENCES users(id),
+  completed_at TIMESTAMP,
   is_done BOOLEAN NOT NULL DEFAULT FALSE
 );
 
