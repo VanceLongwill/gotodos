@@ -37,33 +37,6 @@
   revision = "5a0f697c9ed9d68fef0116532c6e05cfeae00e55"
 
 [[projects]]
-  digest = "1:7e63b12cdd7bef2c411d736cb67e28134d39f5d236aa1bfb8f3d55e3ad709eca"
-  name = "github.com/jinzhu/gorm"
-  packages = [
-    ".",
-    "dialects/postgres",
-  ]
-  pruneopts = "UT"
-  revision = "472c70caa40267cb89fd8facb07fe6454b578626"
-  version = "v1.9.2"
-
-[[projects]]
-  branch = "master"
-  digest = "1:fd97437fbb6b7dce04132cf06775bd258cce305c44add58eb55ca86c6c325160"
-  name = "github.com/jinzhu/inflection"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "04140366298a54a039076d798123ffa108fff46c"
-
-[[projects]]
-  digest = "1:ecd9aa82687cf31d1585d4ac61d0ba180e42e8a6182b85bd785fcca8dfeefc1b"
-  name = "github.com/joho/godotenv"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "23d116af351c84513e1946b527c88823e476be13"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:be97e109f627d3ba8edfef50c9c74f0d0c17cbe3a2e924a8985e4804a894f282"
   name = "github.com/json-iterator/go"
   packages = ["."]
@@ -72,11 +45,10 @@
   version = "1.0.0"
 
 [[projects]]
-  digest = "1:b18ffc558326ebaed3b4a175617f1e12ed4e3f53d6ebfe5ba372a3de16d22278"
+  digest = "1:8ef506fc2bb9ced9b151dafa592d4046063d744c646c1bbe801982ce87e4bc24"
   name = "github.com/lib/pq"
   packages = [
     ".",
-    "hstore",
     "oid",
   ]
   pruneopts = "UT"
@@ -137,9 +109,7 @@
   input-imports = [
     "github.com/dgrijalva/jwt-go",
     "github.com/gin-gonic/gin",
-    "github.com/jinzhu/gorm",
-    "github.com/jinzhu/gorm/dialects/postgres",
-    "github.com/joho/godotenv",
+    "github.com/lib/pq",
     "golang.org/x/crypto/bcrypt",
   ]
   solver-name = "gps-cdcl"
