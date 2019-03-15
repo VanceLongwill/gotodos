@@ -7,12 +7,13 @@ import (
 // User defines the shape of an application user
 type User struct {
 	ID        uint
-	Email     string
 	FirstName sql.NullString
 	LastName  sql.NullString
+	Email     string
 	Password  string
 }
 
+// Serialize converts the user struct to a simple string map for conversion to JSON
 func (u *User) Serialize() map[string]interface{} {
 	mappedUser := map[string]interface{}{
 		"id":    u.ID,
@@ -27,17 +28,18 @@ func (u *User) Serialize() map[string]interface{} {
 	return mappedUser
 }
 
-func GetUser(db *sql.DB, u *User) (*User, error) {
-	sqlStatement := `
-	SELECT * FROM users WHERE email = $1
-	`
-	err := db.QueryRow(sqlStatement, u.Email).Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Password)
+// GetUser finds a single user from an sql database
+func GetUser(db *sql.DB, email string) (*User, error) {
+	sqlStatement := `SELECT * FROM users WHERE email = $1`
+	u := new(User)
+	err := db.QueryRow(sqlStatement, email).Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Password)
 	if err != nil {
 		return nil, err
 	}
 	return u, nil
 }
 
+// CreateUser inserts a single new user into an sql database
 func CreateUser(db *sql.DB, u *User) (*User, error) {
 	sqlStatement := `
 	INSERT INTO users (email, first_name, last_name, password_hash)

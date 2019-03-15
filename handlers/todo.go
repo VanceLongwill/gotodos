@@ -7,7 +7,6 @@ import (
 	"github.com/vancelongwill/gotodos/models"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 // TodoHandler wraps all handlers for Todos
@@ -24,17 +23,17 @@ func NewTodoHandler(db *sql.DB, secret []byte) *TodoHandler {
 	}
 }
 
-type CreateBody struct {
-	Title string `json: "title" binding: "required"`
-	Note  string `json: "title" binding: "required"`
-}
-
 func stringToUint(n string) uint {
 	u64, err := strconv.ParseUint(n, 10, 32)
 	if err != nil {
 		panic(err)
 	}
 	return uint(u64)
+}
+
+type CreateBody struct {
+	Title string `json: "title" binding: "required"`
+	Note  string `json: "note" binding: "required"`
 }
 
 // Create creates a new item of type Todo and stores it
@@ -72,14 +71,6 @@ func (t *TodoHandler) Create(c *gin.Context) {
 		"message":    "Todo item created successfully!",
 		"resourceId": todo.ID,
 	})
-}
-
-type transformedTodo struct {
-	ID     uint      `json: "id"`
-	Title  string    `json: "title"`
-	Note   string    `json: "note"`
-	DueAt  time.Time `json: "dueAt"`
-	IsDone bool      `json: "isDone"`
 }
 
 // GetAll returns a all the current User's Todos
@@ -143,14 +134,34 @@ func (t *TodoHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": _todo})
 }
 
+type UpdateBody struct {
+	Title string `json: "title"`
+	Note  string `json: "note"`
+}
+
 // Update edits an existing Todo
 func (t *TodoHandler) Update(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	todoID := stringToUint(c.Param("id"))
 
-	_todo := models.Todo{ID: todoID, UserID: userID}
+	var body UpdateBody
 
-	todo, err := models.UpdateTodo(t.db, &_todo)
+	if err := c.BindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Bad request",
+		})
+		return
+	}
+
+	_todo := models.Todo{
+		ID:     todoID,
+		UserID: userID,
+		Title:  sql.NullString{body.Title, true},
+		Note:   sql.NullString{body.Note, true},
+	}
+
+	todo, err := models.UpdateTodo(t.db, _todo)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo", "resourceId": todo.ID})

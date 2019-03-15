@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"time"
-	// "strconv"
 )
 
 func createToken(userID uint, expireTime time.Time, secret []byte) (string, error) {
@@ -110,8 +109,8 @@ func (u *UserHandler) Login(c *gin.Context) {
 		})
 		return
 	}
-	reqUser := models.User{Email: body.Email, Password: body.Password}
-	user, err := models.GetUser(u.db, &reqUser)
+
+	user, err := models.GetUser(u.db, body.Email)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "User not found"})
@@ -119,7 +118,7 @@ func (u *UserHandler) Login(c *gin.Context) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"status": http.StatusUnauthorized, "message": "Unable to login"})
+		c.JSON(http.StatusUnauthorized, gin.H{"status": http.StatusUnauthorized, "message": "Invalid password"})
 		return
 	}
 
