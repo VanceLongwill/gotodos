@@ -9,21 +9,53 @@ import (
 	"strconv"
 )
 
+// type Context interface {
+// 	MustGet(s string) string
+// 	BindJSON(o interface{}) error
+// 	JSON(code int, obj interface{})
+// 	DefaultQuery(key, defaultValue string) string
+// 	Param(s string) string
+// }
+
 // TodoHandler wraps all handlers for Todos
 type TodoHandler struct {
-	db     *sql.DB
+	db     TodoStore
 	secret []byte
 }
 
+type Todo = models.Todo
+
+// TodoStore is the datastore API for todos
+type TodoStore interface {
+	CreateTodo(t *Todo) error
+	GetAllTodos(userID, previousID uint) ([]*Todo, error)
+	GetTodo(todoID, userID uint) (*Todo, error)
+	DeleteTodo(todoID, userID uint) (uint, error)
+	MarkTodoAsComplete(todoID, userID uint) (*Todo, error)
+	UpdateTodo(t Todo) (*Todo, error)
+}
+
+type CreateTodo interface {
+	CreateTodo(t *Todo) error
+}
+
+// @TODO: rewrite handlers returning anon functions instead of struct
+
 // NewTodoHandler creates a new TodoHandler
-func NewTodoHandler(db *sql.DB, secret []byte) *TodoHandler {
+func NewTodoHandler(db *models.DB, secret []byte) *TodoHandler {
 	return &TodoHandler{
 		db:     db,
 		secret: secret,
 	}
 }
 
-func stringToUint(n string) uint {
+func CreateTodo(db CreateTodo) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+	}
+}
+
+func StringToUint(n string) uint {
 	u64, err := strconv.ParseUint(n, 10, 32)
 	if err != nil {
 		panic(err)
@@ -38,7 +70,15 @@ type CreateBody struct {
 
 // Create creates a new item of type Todo and stores it
 func (t *TodoHandler) Create(c *gin.Context) {
-	userID := c.MustGet("userID").(uint)
+	strUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Unable to get UserID",
+		})
+		return
+	}
+	userID := strUserID.(uint)
 
 	var body CreateBody
 
@@ -54,10 +94,9 @@ func (t *TodoHandler) Create(c *gin.Context) {
 		Title:  sql.NullString{body.Title, true},
 		Note:   sql.NullString{body.Note, true},
 		UserID: userID,
-		IsDone: false,
 	}
 
-	if err := models.CreateTodo(t.db, &todo); err != nil {
+	if err := t.db.CreateTodo(&todo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":     http.StatusCreated,
 			"message":    "Unable to save todo",
@@ -75,16 +114,23 @@ func (t *TodoHandler) Create(c *gin.Context) {
 
 // GetAll returns a all the current User's Todos
 func (t *TodoHandler) GetAll(c *gin.Context) {
-	userID := c.MustGet("userID").(uint)
-
+	strUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Unable to get UserID",
+		})
+		return
+	}
+	userID := strUserID.(uint)
 	prev := c.DefaultQuery("prev", "0") // use previous id for pagination
-	previousID := stringToUint(prev)
+	previousID := StringToUint(prev)
 
-	todos, err := models.GetAllTodos(t.db, userID, previousID)
+	todos, err := t.db.GetAllTodos(userID, previousID)
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  http.StatusNotFound,
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
 			"message": "Error fetching todos",
 		})
 		return
@@ -108,11 +154,18 @@ func (t *TodoHandler) GetAll(c *gin.Context) {
 
 // Get returns a single Todo by ID
 func (t *TodoHandler) Get(c *gin.Context) {
-	userID := c.MustGet("userID").(uint)
+	strUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Unable to get UserID",
+		})
+		return
+	}
+	userID := strUserID.(uint)
+	todoID := StringToUint(c.Param("id"))
 
-	todoID := stringToUint(c.Param("id"))
-
-	todo, err := models.GetTodo(t.db, todoID, userID)
+	todo, err := t.db.GetTodo(todoID, userID)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -141,8 +194,16 @@ type UpdateBody struct {
 
 // Update edits an existing Todo
 func (t *TodoHandler) Update(c *gin.Context) {
-	userID := c.MustGet("userID").(uint)
-	todoID := stringToUint(c.Param("id"))
+	strUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Unable to get UserID",
+		})
+		return
+	}
+	userID := strUserID.(uint)
+	todoID := StringToUint(c.Param("id"))
 
 	var body UpdateBody
 
@@ -161,7 +222,7 @@ func (t *TodoHandler) Update(c *gin.Context) {
 		Note:   sql.NullString{body.Note, true},
 	}
 
-	todo, err := models.UpdateTodo(t.db, _todo)
+	todo, err := t.db.UpdateTodo(_todo)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo", "resourceId": todo.ID})
@@ -175,10 +236,18 @@ func (t *TodoHandler) Update(c *gin.Context) {
 
 // Delete deletes a single Todo
 func (t *TodoHandler) Delete(c *gin.Context) {
-	userID := c.MustGet("userID").(uint)
-	todoID := stringToUint(c.Param("id"))
+	strUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Unable to get UserID",
+		})
+		return
+	}
+	userID := strUserID.(uint)
+	todoID := StringToUint(c.Param("id"))
 
-	deletedTodoID, err := models.DeleteTodo(t.db, todoID, userID)
+	deletedTodoID, err := t.db.DeleteTodo(todoID, userID)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo"})

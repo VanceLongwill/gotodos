@@ -7,8 +7,8 @@ RUN go get github.com/golang/dep/cmd/dep
 
 # List project dependencies with Gopkg.toml and Gopkg.lock
 # These layers are only re-built when Gopkg files are updated
-COPY Gopkg.lock Gopkg.toml /go/src/project/
-WORKDIR /go/src/project/
+# COPY Gopkg.lock Gopkg.toml /go/src/project/
+# WORKDIR /go/src/project/
 # Install library dependencies
 RUN dep ensure -vendor-only
 

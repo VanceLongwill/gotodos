@@ -4,4 +4,5 @@ import (
 	"testing"
 )
 
-func TestRegisterUser(t *testing.T)
+func TestRegisterUser(t *testing.T) {
+}

@@ -50,23 +50,28 @@ func (t *Todo) Serialize() map[string]interface{} {
 }
 
 // CreateTodo inserts a single todo into an sql database
-func CreateTodo(db *sql.DB, t *Todo) error {
+func (db *DB) CreateTodo(t *Todo) error {
+	if len(t.Title.String) == 0 && len(t.Note.String) == 0 {
+		return fmt.Errorf("Todo must have non empty title or note")
+	}
 	sqlStatement := `
-	INSERT INTO todos (title, note, created_at, modified_at, due_at, user_id)
-	VALUES ($1, $2, $3, $4, $5, $6)
-	RETURNING id;`
+	INSERT INTO todos (title, note, user_id)
+	VALUES ($1, $2, $3);`
 
-	currentTime := time.Now()
-	err := db.QueryRow(sqlStatement, t.Title, t.Note, currentTime, currentTime, currentTime, t.UserID).
-		Scan(&t.ID)
+	res, err := db.Exec(sqlStatement, t.Title, t.Note, t.UserID)
 	if err != nil {
 		return err
 	}
+
+	if rows, err := res.RowsAffected(); rows != 1 || err != nil {
+		return fmt.Errorf("Todo could not be inserted")
+	}
+
 	return nil
 }
 
 // GetAllTodos finds all the todos for a given user and page in an sql database
-func GetAllTodos(db *sql.DB, userID, previousID uint) ([]*Todo, error) {
+func (db *DB) GetAllTodos(userID, previousID uint) ([]*Todo, error) {
 	sqlStatement := `
 	SELECT * FROM todos WHERE user_id = $1 AND id > $3
 	LIMIT $2;`
@@ -90,7 +95,7 @@ func GetAllTodos(db *sql.DB, userID, previousID uint) ([]*Todo, error) {
 }
 
 // GetTodo finds a single todo from an sql database
-func GetTodo(db *sql.DB, todoID, userID uint) (*Todo, error) {
+func (db *DB) GetTodo(todoID, userID uint) (*Todo, error) {
 	sqlStatement := `
 	SELECT * FROM todos WHERE id = $1 AND user_id = $2`
 	todo := new(Todo)
@@ -104,7 +109,7 @@ func GetTodo(db *sql.DB, todoID, userID uint) (*Todo, error) {
 }
 
 // MarkTodoAsComplete changes the is_done field to true and adds a completed_at timestamp for a given todo in an sql database
-func MarkTodoAsComplete(db *sql.DB, todoID, userID uint) (*Todo, error) {
+func (db *DB) MarkTodoAsComplete(todoID, userID uint) (*Todo, error) {
 	sqlStatement := `
 	UPDATE todos
 	SET completed_at = $3, is_done = $4,
@@ -122,7 +127,7 @@ func MarkTodoAsComplete(db *sql.DB, todoID, userID uint) (*Todo, error) {
 }
 
 // UpdateTodo changes the title and note of a single todo in an sql database
-func UpdateTodo(db *sql.DB, t Todo) (*Todo, error) {
+func (db *DB) UpdateTodo(t Todo) (*Todo, error) {
 	sqlStatement := `
 	UPDATE todos
 	SET title = $3, note = $4, modified_at = $5,
@@ -141,7 +146,7 @@ func UpdateTodo(db *sql.DB, t Todo) (*Todo, error) {
 }
 
 // DeleteTodo removes a single todo from an sql database
-func DeleteTodo(db *sql.DB, todoID, userID uint) (uint, error) {
+func (db *DB) DeleteTodo(todoID, userID uint) (uint, error) {
 	sqlStatement := `
 	DELETE FROM todos
 	WHERE id = $1 AND user_id = $2;`

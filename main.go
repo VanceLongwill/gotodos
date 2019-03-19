@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/vancelongwill/gotodos/db"
 	"github.com/vancelongwill/gotodos/handlers"
 	"github.com/vancelongwill/gotodos/middleware"
+	"github.com/vancelongwill/gotodos/models"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -37,7 +37,7 @@ func ping(c *gin.Context) {
 }
 
 func main() {
-	db, dbErr := db.Init("0.0.0.0", "5432", "gotodos", "gotodos", "gotodos")
+	db, dbErr := models.NewDB("0.0.0.0", "5432", "gotodos", "gotodos", "gotodos")
 	if dbErr != nil {
 		log.Fatal("Error initialising database:\t", dbErr)
 	}

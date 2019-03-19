@@ -24,12 +24,12 @@ func createToken(userID uint, expireTime time.Time, secret []byte) (string, erro
 
 // UserHandler wraps all handlers for application Users
 type UserHandler struct {
-	db     *sql.DB
+	db     models.UserStore
 	secret []byte
 }
 
 // NewUserHandler creates a new UserHandler
-func NewUserHandler(db *sql.DB, secret []byte) *UserHandler {
+func NewUserHandler(db *models.DB, secret []byte) *UserHandler {
 	return &UserHandler{
 		db:     db,
 		secret: secret,
@@ -68,7 +68,7 @@ func (u *UserHandler) Register(c *gin.Context) {
 		LastName:  sql.NullString{body.LastName, true},
 	}
 
-	newUser, err := models.CreateUser(u.db, &user)
+	newUser, err := u.db.CreateUser(&user)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
@@ -110,7 +110,7 @@ func (u *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := models.GetUser(u.db, body.Email)
+	user, err := u.db.GetUser(body.Email)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "User not found"})

@@ -13,6 +13,11 @@ type User struct {
 	Password  string
 }
 
+type UserStore interface {
+	GetUser(email string) (*User, error)
+	CreateUser(u *User) (*User, error)
+}
+
 // Serialize converts the user struct to a simple string map for conversion to JSON
 func (u *User) Serialize() map[string]interface{} {
 	mappedUser := map[string]interface{}{
@@ -29,7 +34,7 @@ func (u *User) Serialize() map[string]interface{} {
 }
 
 // GetUser finds a single user from an sql database
-func GetUser(db *sql.DB, email string) (*User, error) {
+func (db *DB) GetUser(email string) (*User, error) {
 	sqlStatement := `SELECT * FROM users WHERE email = $1`
 	u := new(User)
 	err := db.QueryRow(sqlStatement, email).Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Password)
@@ -40,7 +45,7 @@ func GetUser(db *sql.DB, email string) (*User, error) {
 }
 
 // CreateUser inserts a single new user into an sql database
-func CreateUser(db *sql.DB, u *User) (*User, error) {
+func (db *DB) CreateUser(u *User) (*User, error) {
 	sqlStatement := `
 	INSERT INTO users (email, first_name, last_name, password_hash)
 	VALUES ($1, $2, $3, $4)

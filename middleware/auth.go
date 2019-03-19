@@ -13,7 +13,7 @@ type UserClaims struct {
 	jwt.StandardClaims      // includes ExpiresAt
 }
 
-// Authorize blocks unauthorized requests
+// Authorize returns a function which blocks unauthorized requests
 func Authorize(jwtSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, cookieErr := c.Cookie("token")
