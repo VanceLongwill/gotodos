@@ -17,44 +17,20 @@ import (
 // 	Param(s string) string
 // }
 
-// TodoHandler wraps all handlers for Todos
-type TodoHandler struct {
-	db     TodoStore
-	secret []byte
-}
-
+// Todo is a type alias for convenience
 type Todo = models.Todo
 
 // TodoStore is the datastore API for todos
 type TodoStore interface {
-	CreateTodo(t *Todo) error
-	GetAllTodos(userID, previousID uint) ([]*Todo, error)
-	GetTodo(todoID, userID uint) (*Todo, error)
-	DeleteTodo(todoID, userID uint) (uint, error)
-	MarkTodoAsComplete(todoID, userID uint) (*Todo, error)
-	UpdateTodo(t Todo) (*Todo, error)
+	DBCreateTodo
+	DBGetTodo
+	DBGetAllTodos
+	DBDeleteTodo
+	DBMarkTodoAsComplete
+	DBUpdateTodo
 }
 
-type CreateTodo interface {
-	CreateTodo(t *Todo) error
-}
-
-// @TODO: rewrite handlers returning anon functions instead of struct
-
-// NewTodoHandler creates a new TodoHandler
-func NewTodoHandler(db *models.DB, secret []byte) *TodoHandler {
-	return &TodoHandler{
-		db:     db,
-		secret: secret,
-	}
-}
-
-func CreateTodo(db CreateTodo) gin.HandlerFunc {
-	return func(c *gin.Context) {
-
-	}
-}
-
+// StringToUint is a util function which converts strings to uints
 func StringToUint(n string) uint {
 	u64, err := strconv.ParseUint(n, 10, 32)
 	if err != nil {
@@ -63,196 +39,258 @@ func StringToUint(n string) uint {
 	return uint(u64)
 }
 
-type CreateBody struct {
-	Title string `json: "title" binding: "required"`
-	Note  string `json: "note" binding: "required"`
+// DBCreateTodo represents the part of the datalayer responsible for creation
+type DBCreateTodo interface {
+	CreateTodo(t *Todo) error
 }
 
-// Create creates a new item of type Todo and stores it
-func (t *TodoHandler) Create(c *gin.Context) {
-	strUserID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Unable to get UserID",
-		})
-		return
-	}
-	userID := strUserID.(uint)
+// CreateTodo returns a function which handles requests to create todos
+func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strUserID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to get UserID",
+			})
+			return
+		}
+		userID := strUserID.(uint)
 
-	var body CreateBody
+		type CreateBody struct {
+			Title string `json: "title" binding: "required"`
+			Note  string `json: "note" binding: "required"`
+		}
+		var body CreateBody
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Bad request",
+			})
+			return
+		}
 
-	if err := c.BindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  http.StatusBadRequest,
-			"message": "Bad request",
-		})
-		return
-	}
+		todo := Todo{
+			Title:  sql.NullString{body.Title, true},
+			Note:   sql.NullString{body.Note, true},
+			UserID: userID,
+		}
 
-	todo := models.Todo{
-		Title:  sql.NullString{body.Title, true},
-		Note:   sql.NullString{body.Note, true},
-		UserID: userID,
-	}
+		if err := db.CreateTodo(&todo); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":     http.StatusCreated,
+				"message":    "Unable to save todo",
+				"resourceId": todo.ID,
+			})
+			return
+		}
 
-	if err := t.db.CreateTodo(&todo); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusCreated, gin.H{
 			"status":     http.StatusCreated,
-			"message":    "Unable to save todo",
+			"message":    "Todo item created successfully!",
 			"resourceId": todo.ID,
 		})
-		return
 	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"status":     http.StatusCreated,
-		"message":    "Todo item created successfully!",
-		"resourceId": todo.ID,
-	})
 }
 
-// GetAll returns a all the current User's Todos
-func (t *TodoHandler) GetAll(c *gin.Context) {
-	strUserID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Unable to get UserID",
-		})
-		return
-	}
-	userID := strUserID.(uint)
-	prev := c.DefaultQuery("prev", "0") // use previous id for pagination
-	previousID := StringToUint(prev)
-
-	todos, err := t.db.GetAllTodos(userID, previousID)
-	if err != nil {
-		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Error fetching todos",
-		})
-		return
-	}
-
-	if len(todos) <= 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  http.StatusNotFound,
-			"message": "No todo items",
-		})
-		return
-	}
-
-	data := make([]map[string]interface{}, len(todos))
-	for i, item := range todos {
-		data[i] = item.Serialize()
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": data})
+// DBGetAllTodos represents the part of the datalayer responsible for getting a list of todos
+type DBGetAllTodos interface {
+	GetAllTodos(userID, previousID uint) ([]*Todo, error)
 }
 
-// Get returns a single Todo by ID
-func (t *TodoHandler) Get(c *gin.Context) {
-	strUserID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Unable to get UserID",
-		})
-		return
+// GetAllTodos returns a function responsible for handling requests for all the current User's todos
+func GetAllTodos(db DBGetAllTodos) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strUserID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to get UserID",
+			})
+			return
+		}
+		userID := strUserID.(uint)
+		prev := c.DefaultQuery("prev", "0") // use previous id for pagination
+		previousID := StringToUint(prev)
+
+		todos, err := db.GetAllTodos(userID, previousID)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Error fetching todos",
+			})
+			return
+		}
+
+		if len(todos) <= 0 {
+			c.JSON(http.StatusNotFound, gin.H{
+				"status":  http.StatusNotFound,
+				"message": "No todo items",
+			})
+			return
+		}
+
+		data := make([]map[string]interface{}, len(todos))
+		for i, item := range todos {
+			data[i] = item.Serialize()
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": data})
 	}
-	userID := strUserID.(uint)
-	todoID := StringToUint(c.Param("id"))
-
-	todo, err := t.db.GetTodo(todoID, userID)
-
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  http.StatusNotFound,
-			"message": "Unable to find todo",
-		})
-		return
-	}
-
-	if todo.UserID != userID {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  http.StatusUnauthorized,
-			"message": "Todo doesn't belong to user",
-		})
-		return
-	}
-
-	_todo := todo.Serialize()
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": _todo})
 }
 
-type UpdateBody struct {
-	Title string `json: "title"`
-	Note  string `json: "note"`
+// DBGetTodo represents the part of the datalayer responsible for getting a single todo
+type DBGetTodo interface {
+	GetTodo(todoID, userID uint) (*Todo, error)
 }
 
-// Update edits an existing Todo
-func (t *TodoHandler) Update(c *gin.Context) {
-	strUserID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Unable to get UserID",
-		})
-		return
+// GetTodo returns a function which handles requests to get a single todo
+func GetTodo(db DBGetTodo) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strUserID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to get UserID",
+			})
+			return
+		}
+		userID := strUserID.(uint)
+		todoID := StringToUint(c.Param("id"))
+
+		todo, err := db.GetTodo(todoID, userID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"status":  http.StatusNotFound,
+				"message": "Unable to find todo",
+			})
+			return
+		}
+
+		// if todo.UserID != userID {
+		// 	c.JSON(http.StatusUnauthorized, gin.H{
+		// 		"status":  http.StatusUnauthorized,
+		// 		"message": "Todo doesn't belong to user",
+		// 	})
+		// 	return
+		// }
+
+		_todo := todo.Serialize()
+		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": _todo})
 	}
-	userID := strUserID.(uint)
-	todoID := StringToUint(c.Param("id"))
-
-	var body UpdateBody
-
-	if err := c.BindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  http.StatusBadRequest,
-			"message": "Bad request",
-		})
-		return
-	}
-
-	_todo := models.Todo{
-		ID:     todoID,
-		UserID: userID,
-		Title:  sql.NullString{body.Title, true},
-		Note:   sql.NullString{body.Note, true},
-	}
-
-	todo, err := t.db.UpdateTodo(_todo)
-
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo", "resourceId": todo.ID})
-		return
-	}
-
-	// completed, _ := strconv.Atoi(c.PostForm("completed"))
-	// t.db.Model(&todo).Update("completed", false) // @TODO: add ability to change IsDone status
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo updated successfully!"})
 }
 
-// Delete deletes a single Todo
-func (t *TodoHandler) Delete(c *gin.Context) {
-	strUserID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Unable to get UserID",
-		})
-		return
+// DBUpdateTodo represents the part of the datalayer responsible for updating a todo
+type DBUpdateTodo interface {
+	UpdateTodo(t Todo) (*Todo, error)
+}
+
+// UpdateTodo returns a function which handles requests to edit an existing Todo
+func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strUserID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to get UserID",
+			})
+			return
+		}
+		userID := strUserID.(uint)
+		todoID := StringToUint(c.Param("id"))
+		type UpdateBody struct {
+			Title string `json: "title"`
+			Note  string `json: "note"`
+		}
+
+		var body UpdateBody
+
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Bad request",
+			})
+			return
+		}
+
+		_todo := Todo{
+			ID:     todoID,
+			UserID: userID,
+			Title:  sql.NullString{body.Title, true},
+			Note:   sql.NullString{body.Note, true},
+		}
+
+		todo, err := db.UpdateTodo(_todo)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo", "resourceId": todo.ID})
+			return
+		}
+
+		// completed, _ := strconv.Atoi(c.PostForm("completed"))
+		// t.db.Model(&todo).Update("completed", false) // @TODO: add ability to change IsDone status
+		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo updated successfully!"})
 	}
-	userID := strUserID.(uint)
-	todoID := StringToUint(c.Param("id"))
+}
 
-	deletedTodoID, err := t.db.DeleteTodo(todoID, userID)
+// DBDeleteTodo represents the part of the datalayer responsible for deleting a single todo
+type DBDeleteTodo interface {
+	DeleteTodo(todoID, userID uint) (uint, error)
+}
 
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo"})
-		return
+// DeleteTodo returns a function which handles requests to delete a todo
+func DeleteTodo(db DBDeleteTodo) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strUserID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to get UserID",
+			})
+			return
+		}
+		userID := strUserID.(uint)
+		todoID := StringToUint(c.Param("id"))
+
+		deletedTodoID, err := db.DeleteTodo(todoID, userID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "Unable to find todo"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo deleted successfully!", "resourceId": deletedTodoID})
 	}
+}
 
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo deleted successfully!", "resourceId": deletedTodoID})
+// DBMarkTodoAsComplete represents the part of the datalayer responsible for updating the completion status of a todo
+type DBMarkTodoAsComplete interface {
+	MarkTodoAsComplete(todoID, userID uint) error
+}
+
+// MarkTodoAsComplete returns a function which handles requests to mark a todo as complete
+func MarkTodoAsComplete(db DBMarkTodoAsComplete) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strUserID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to get UserID",
+			})
+			return
+		}
+		userID := strUserID.(uint)
+		todoID := StringToUint(c.Param("id"))
+
+		if err := db.MarkTodoAsComplete(todoID, userID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"status":  http.StatusNotFound,
+				"message": "Unable to find todo",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo marked as complete successfully"})
+	}
 }

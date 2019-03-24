@@ -2,7 +2,7 @@ package models
 
 import (
 	"database/sql"
-	"fmt"
+	"errors"
 	"github.com/lib/pq"
 	"time"
 )
@@ -22,6 +22,12 @@ type Todo struct {
 
 const (
 	resultsPerPage = 10 // the default page size for todos
+)
+
+// Errors
+var (
+	ErrorEmptyTodo      = errors.New("Todo must have non empty title or note")
+	ErrorRowsUnaffected = errors.New("Rows were not changed successfully")
 )
 
 // Serialize converts the todo struct to a simple string map for conversion to JSON
@@ -52,7 +58,7 @@ func (t *Todo) Serialize() map[string]interface{} {
 // CreateTodo inserts a single todo into an sql database
 func (db *DB) CreateTodo(t *Todo) error {
 	if len(t.Title.String) == 0 && len(t.Note.String) == 0 {
-		return fmt.Errorf("Todo must have non empty title or note")
+		return ErrorEmptyTodo
 	}
 	sqlStatement := `
 	INSERT INTO todos (title, note, user_id)
@@ -62,9 +68,12 @@ func (db *DB) CreateTodo(t *Todo) error {
 	if err != nil {
 		return err
 	}
-
-	if rows, err := res.RowsAffected(); rows != 1 || err != nil {
-		return fmt.Errorf("Todo could not be inserted")
+	count, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return ErrorRowsUnaffected
 	}
 
 	return nil
@@ -109,40 +118,51 @@ func (db *DB) GetTodo(todoID, userID uint) (*Todo, error) {
 }
 
 // MarkTodoAsComplete changes the is_done field to true and adds a completed_at timestamp for a given todo in an sql database
-func (db *DB) MarkTodoAsComplete(todoID, userID uint) (*Todo, error) {
+func (db *DB) MarkTodoAsComplete(todoID, userID uint) error {
 	sqlStatement := `
 	UPDATE todos
-	SET completed_at = $3, is_done = $4,
+	SET completed_at = $3, is_done = TRUE 
 	WHERE id = $1 AND user_id = $2;`
 
 	currentTime := time.Now()
-	todo := new(Todo)
 
-	err := db.QueryRow(sqlStatement, todoID, userID, todo.Title, todo.Note, currentTime).
-		Scan(&todo.ID)
+	res, err := db.Exec(sqlStatement, todoID, userID, currentTime)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return todo, nil
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return ErrorRowsUnaffected
+	}
+	return nil
 }
 
 // UpdateTodo changes the title and note of a single todo in an sql database
 func (db *DB) UpdateTodo(t Todo) (*Todo, error) {
 	sqlStatement := `
 	UPDATE todos
-	SET title = $3, note = $4, modified_at = $5,
+	SET title = $3, note = $4, modified_at = $5
 	WHERE id = $1 AND user_id = $2;`
 
 	currentTime := time.Now()
 
-	todo := new(Todo)
-
-	err := db.QueryRow(sqlStatement, todo.ID, todo.UserID, todo.Title, todo.Note, currentTime).
-		Scan(&todo.ID)
+	res, err := db.Exec(sqlStatement, t.ID, t.UserID, t.Title, t.Note, currentTime)
 	if err != nil {
 		return nil, err
 	}
-	return todo, nil
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if count != 1 {
+		return nil, ErrorRowsUnaffected
+	}
+	return &t, nil
 }
 
 // DeleteTodo removes a single todo from an sql database
@@ -160,7 +180,7 @@ func (db *DB) DeleteTodo(todoID, userID uint) (uint, error) {
 		return 0, err
 	}
 	if count != 1 {
-		return 0, fmt.Errorf("Expected 1 row affected but found %d", count)
+		return 0, ErrorRowsUnaffected
 	}
 	return todoID, nil
 }

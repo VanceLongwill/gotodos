@@ -13,6 +13,7 @@ type User struct {
 	Password  string
 }
 
+// UserStore represents the database layer for Users
 type UserStore interface {
 	GetUser(email string) (*User, error)
 	CreateUser(u *User) (*User, error)

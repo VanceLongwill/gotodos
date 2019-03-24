@@ -13,16 +13,16 @@ import (
 )
 
 const (
-	apiVersion = "v1"
-	apiPrefix  = "api"
-	apiPort    = 8080
+	apiVersion  = "v1"
+	apiPrefix   = "api"
+	apiPort     = 8080
+	jwtSecretFn = "jwtsecret.key"
 )
 
 func getSecret() []byte {
-	fn := "jwtsecret.key"
-	key, err := ioutil.ReadFile(fn)
+	key, err := ioutil.ReadFile(jwtSecretFn)
 	if err != nil {
-		log.Fatal("Error reading from: ", fn, err)
+		log.Fatal("Error reading from: ", jwtSecretFn, err)
 	}
 	if len(key) == 0 {
 		log.Fatal("Empty jwt key")
@@ -46,24 +46,22 @@ func main() {
 	app := gin.Default()
 	app.GET("/ping", ping)
 
-	todoHandler := handlers.NewTodoHandler(db, jwtSecret)
-
 	todoRouter := app.Group(path.Join(apiPrefix, apiVersion, "todos"))
 
 	todoRouter.Use(middleware.Authorize(jwtSecret))
 	{
-		todoRouter.GET("/", todoHandler.GetAll)
-		todoRouter.POST("/", todoHandler.Create)
-		todoRouter.GET("/:id", todoHandler.Get)
-		todoRouter.PUT("/:id", todoHandler.Update)
-		todoRouter.DELETE("/:id", todoHandler.Delete)
+		todoRouter.GET("/", handlers.GetAllTodos(db))
+		todoRouter.POST("/", handlers.CreateTodo(db))
+		todoRouter.GET("/:id", handlers.GetTodo(db))
+		todoRouter.PUT("/:id", handlers.UpdateTodo(db))
+		todoRouter.GET("/:id/completed", handlers.MarkTodoAsComplete(db))
+		todoRouter.DELETE("/:id", handlers.DeleteTodo(db))
 	}
 
-	userHandler := handlers.NewUserHandler(db, jwtSecret)
 	userRouter := app.Group(path.Join(apiPrefix, apiVersion, "user"))
 	{
-		userRouter.POST("/login", userHandler.Login)
-		userRouter.POST("/register", userHandler.Register)
+		userRouter.POST("/login", handlers.LoginUser(db, jwtSecret))
+		userRouter.POST("/register", handlers.RegisterUser(db, jwtSecret))
 	}
 
 	app.Run(fmt.Sprintf(":%d", apiPort))
