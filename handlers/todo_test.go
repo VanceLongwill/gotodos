@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestStringToUint(t *testing.T) {
@@ -57,7 +59,7 @@ func (db mockComplete) MarkTodoAsComplete(todoID, userID uint, currentTime time.
 	return &Todo{
 		ID:          todoID,
 		UserID:      userID,
-		CompletedAt: currentTime,
+		CompletedAt: pq.NullTime{currentTime, true},
 	}, nil
 }
 

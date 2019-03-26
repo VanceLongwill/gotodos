@@ -20,10 +20,10 @@ func (u *User) Serialize() map[string]interface{} {
 		"email": u.Email,
 	}
 	if u.FirstName.Valid {
-		mappedUser["firstName"] = u.FirstName
+		mappedUser["firstName"] = u.FirstName.String
 	}
 	if u.LastName.Valid {
-		mappedUser["lastName"] = u.LastName
+		mappedUser["lastName"] = u.LastName.String
 	}
 	return mappedUser
 }
