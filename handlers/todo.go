@@ -7,6 +7,7 @@ import (
 	"github.com/vancelongwill/gotodos/models"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // Context allows mocking of the gin.Context functions required
@@ -235,10 +236,11 @@ func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 		}
 
 		_todo := Todo{
-			ID:     todoID,
-			UserID: userID,
-			Title:  sql.NullString{body.Title, true},
-			Note:   sql.NullString{body.Note, true},
+			ID:         todoID,
+			UserID:     userID,
+			Title:      sql.NullString{body.Title, true},
+			Note:       sql.NullString{body.Note, true},
+			ModifiedAt: time.Now(),
 		}
 
 		todo, err := db.UpdateTodo(_todo)
@@ -291,7 +293,7 @@ func DeleteTodo(db DBDeleteTodo) gin.HandlerFunc {
 
 // DBMarkTodoAsComplete represents the part of the datalayer responsible for updating the completion status of a todo
 type DBMarkTodoAsComplete interface {
-	MarkTodoAsComplete(todoID, userID uint) error
+	MarkTodoAsComplete(todoID, userID uint, currentTime time.Time) error
 }
 
 // MarkTodoAsComplete returns a function which handles requests to mark a todo as complete
@@ -316,7 +318,7 @@ func MarkTodoAsComplete(db DBMarkTodoAsComplete) gin.HandlerFunc {
 		}
 		todoID := StringToUint(strTodoID)
 
-		if err := db.MarkTodoAsComplete(todoID, userID); err != nil {
+		if err := db.MarkTodoAsComplete(todoID, userID, time.Now()); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
 				"status":  http.StatusNotFound,
 				"message": "Unable to find todo",

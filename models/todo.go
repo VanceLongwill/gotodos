@@ -100,6 +100,9 @@ func (db *DB) GetAllTodos(userID, previousID uint) ([]*Todo, error) {
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+	if todos == nil {
+		return nil, errors.New("Empty DB")
+	}
 	return todos, nil
 }
 
@@ -118,13 +121,11 @@ func (db *DB) GetTodo(todoID, userID uint) (*Todo, error) {
 }
 
 // MarkTodoAsComplete changes the is_done field to true and adds a completed_at timestamp for a given todo in an sql database
-func (db *DB) MarkTodoAsComplete(todoID, userID uint) error {
+func (db *DB) MarkTodoAsComplete(todoID, userID uint, currentTime time.Time) error {
 	sqlStatement := `
 	UPDATE todos
 	SET completed_at = $3, is_done = TRUE 
 	WHERE id = $1 AND user_id = $2;`
-
-	currentTime := time.Now()
 
 	res, err := db.Exec(sqlStatement, todoID, userID, currentTime)
 	if err != nil {
@@ -148,9 +149,7 @@ func (db *DB) UpdateTodo(t Todo) (*Todo, error) {
 	SET title = $3, note = $4, modified_at = $5
 	WHERE id = $1 AND user_id = $2;`
 
-	currentTime := time.Now()
-
-	res, err := db.Exec(sqlStatement, t.ID, t.UserID, t.Title, t.Note, currentTime)
+	res, err := db.Exec(sqlStatement, t.ID, t.UserID, t.Title, t.Note, t.ModifiedAt)
 	if err != nil {
 		return nil, err
 	}

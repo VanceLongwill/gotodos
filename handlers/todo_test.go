@@ -53,10 +53,11 @@ func (db mockDelete) DeleteTodo(todoID, userID uint) (uint, error) {
 
 type mockComplete struct{}
 
-func (db mockComplete) MarkTodoAsComplete(todoID, userID uint) (*Todo, error) {
+func (db mockComplete) MarkTodoAsComplete(todoID, userID uint, currentTime time.Time) (*Todo, error) {
 	return &Todo{
-		ID:     todoID,
-		UserID: userID,
+		ID:          todoID,
+		UserID:      userID,
+		CompletedAt: currentTime,
 	}, nil
 }
 
