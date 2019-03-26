@@ -9,8 +9,9 @@ import (
 	"strconv"
 )
 
+// Context allows mocking of the gin.Context functions required
 // type Context interface {
-// 	MustGet(s string) string
+// 	Get(s string) (string, bool)
 // 	BindJSON(o interface{}) error
 // 	JSON(code int, obj interface{})
 // 	DefaultQuery(key, defaultValue string) string
@@ -44,6 +45,11 @@ type DBCreateTodo interface {
 	CreateTodo(t *Todo) error
 }
 
+type CreateRequestBody struct {
+	Title string `json:"title"`
+	Note  string `json:"note" binding:"required"`
+}
+
 // CreateTodo returns a function which handles requests to create todos
 func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -57,15 +63,11 @@ func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 		}
 		userID := strUserID.(uint)
 
-		type CreateBody struct {
-			Title string `json: "title" binding: "required"`
-			Note  string `json: "note" binding: "required"`
-		}
-		var body CreateBody
+		var body CreateRequestBody
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,
-				"message": "Bad request",
+				"message": fmt.Sprintf("Bad request: %s", err.Error()),
 			})
 			return
 		}
@@ -78,7 +80,7 @@ func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 
 		if err := db.CreateTodo(&todo); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":     http.StatusCreated,
+				"status":     http.StatusInternalServerError,
 				"message":    "Unable to save todo",
 				"resourceId": todo.ID,
 			})
@@ -157,7 +159,15 @@ func GetTodo(db DBGetTodo) gin.HandlerFunc {
 			return
 		}
 		userID := strUserID.(uint)
-		todoID := StringToUint(c.Param("id"))
+		strTodoID := c.Param("id")
+		if len(strTodoID) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Unable to get todo ID",
+			})
+			return
+		}
+		todoID := StringToUint(strTodoID)
 
 		todo, err := db.GetTodo(todoID, userID)
 
@@ -169,14 +179,6 @@ func GetTodo(db DBGetTodo) gin.HandlerFunc {
 			return
 		}
 
-		// if todo.UserID != userID {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{
-		// 		"status":  http.StatusUnauthorized,
-		// 		"message": "Todo doesn't belong to user",
-		// 	})
-		// 	return
-		// }
-
 		_todo := todo.Serialize()
 		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": _todo})
 	}
@@ -185,6 +187,11 @@ func GetTodo(db DBGetTodo) gin.HandlerFunc {
 // DBUpdateTodo represents the part of the datalayer responsible for updating a todo
 type DBUpdateTodo interface {
 	UpdateTodo(t Todo) (*Todo, error)
+}
+
+type UpdateRequestBody struct {
+	Title string `json:"title"`
+	Note  string `json:"note"`
 }
 
 // UpdateTodo returns a function which handles requests to edit an existing Todo
@@ -199,18 +206,30 @@ func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 			return
 		}
 		userID := strUserID.(uint)
-		todoID := StringToUint(c.Param("id"))
-		type UpdateBody struct {
-			Title string `json: "title"`
-			Note  string `json: "note"`
+		strTodoID := c.Param("id")
+		if len(strTodoID) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Unable to get todo ID",
+			})
+			return
 		}
+		todoID := StringToUint(strTodoID)
 
-		var body UpdateBody
+		var body UpdateRequestBody
 
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,
 				"message": "Bad request",
+			})
+			return
+		}
+
+		if len(body.Title) == 0 && len(body.Note) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Todo title or note must be provided to update",
 			})
 			return
 		}
@@ -228,8 +247,6 @@ func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 			return
 		}
 
-		// completed, _ := strconv.Atoi(c.PostForm("completed"))
-		// t.db.Model(&todo).Update("completed", false) // @TODO: add ability to change IsDone status
 		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Todo updated successfully!"})
 	}
 }
@@ -251,7 +268,15 @@ func DeleteTodo(db DBDeleteTodo) gin.HandlerFunc {
 			return
 		}
 		userID := strUserID.(uint)
-		todoID := StringToUint(c.Param("id"))
+		strTodoID := c.Param("id")
+		if len(strTodoID) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Unable to get todo ID",
+			})
+			return
+		}
+		todoID := StringToUint(strTodoID)
 
 		deletedTodoID, err := db.DeleteTodo(todoID, userID)
 
@@ -281,7 +306,15 @@ func MarkTodoAsComplete(db DBMarkTodoAsComplete) gin.HandlerFunc {
 			return
 		}
 		userID := strUserID.(uint)
-		todoID := StringToUint(c.Param("id"))
+		strTodoID := c.Param("id")
+		if len(strTodoID) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Unable to get todo ID",
+			})
+			return
+		}
+		todoID := StringToUint(strTodoID)
 
 		if err := db.MarkTodoAsComplete(todoID, userID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{

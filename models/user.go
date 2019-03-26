@@ -13,12 +13,6 @@ type User struct {
 	Password  string
 }
 
-// UserStore represents the database layer for Users
-type UserStore interface {
-	GetUser(email string) (*User, error)
-	CreateUser(u *User) (*User, error)
-}
-
 // Serialize converts the user struct to a simple string map for conversion to JSON
 func (u *User) Serialize() map[string]interface{} {
 	mappedUser := map[string]interface{}{

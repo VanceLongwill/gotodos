@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -29,34 +30,45 @@ func TestStringToUint(t *testing.T) {
 	}
 }
 
-type mockDB struct{}
+type mockCreate struct{}
 
-func (db mockDB) CreateTodo(t *Todo) error {
+func (db mockCreate) CreateTodo(t *Todo) error {
 	return nil
 }
 
-// func GetAllTodos(userID, previousID uint) ([]*Todo, error)  {}
-func (db mockDB) GetTodo(todoID, userID uint) (*Todo, error) {
+type mockGet struct{}
+
+func (db mockGet) GetTodo(todoID, userID uint) (*Todo, error) {
 	return &Todo{
 		ID:     todoID,
 		UserID: userID,
 	}, nil
 }
 
-func (db mockDB) DeleteTodo(todoID, userID uint) (uint, error) {
+type mockDelete struct{}
+
+func (db mockDelete) DeleteTodo(todoID, userID uint) (uint, error) {
 	return todoID, nil
 }
-func (db mockDB) MarkTodoAsComplete(todoID, userID uint) (*Todo, error) {
+
+type mockComplete struct{}
+
+func (db mockComplete) MarkTodoAsComplete(todoID, userID uint) (*Todo, error) {
 	return &Todo{
 		ID:     todoID,
 		UserID: userID,
 	}, nil
 }
-func (db mockDB) UpdateTodo(t Todo) (*Todo, error) {
+
+type mockUpdate struct{}
+
+func (db mockUpdate) UpdateTodo(t Todo) (*Todo, error) {
 	return &t, nil
 }
 
-func (db mockDB) GetAllTodos(id, prevID uint) ([]*Todo, error) {
+type mockGetAll struct{}
+
+func (db mockGetAll) GetAllTodos(id, prevID uint) ([]*Todo, error) {
 	todos := make([]*Todo, 0)
 	for i := uint(0); i < 10; i++ {
 		t := &Todo{}
@@ -66,6 +78,7 @@ func (db mockDB) GetAllTodos(id, prevID uint) ([]*Todo, error) {
 	}
 	return todos, nil
 }
+
 func TestGetAll(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder() // implements http.ResponseWriter
@@ -75,29 +88,19 @@ func TestGetAll(t *testing.T) {
 	req, _ := http.NewRequest("GET", "http://example.com/", nil)
 	mockContext.Request = req
 
-	db := &mockDB{}
-	todoHandler := &TodoHandler{
-		db:     db,
-		secret: []byte("some-secret"),
-	}
-
+	db := &mockGetAll{}
 	userID := uint(11)
 	mockContext.Set("userID", userID)
 
 	// without userID in context
-	todoHandler.GetAll(mockContext)
+	GetAllTodos(db)(mockContext)
 	if recorder.Code != http.StatusOK {
 		t.Errorf("Expected status code %d but received %d", http.StatusOK, recorder.Code)
 	}
-
-	// res := recorder.Result()
-	// res.Write
-	// if err := res.Write(os.Stdout); err != nil {
-	// 	t.Error(err)
-	// }
 }
 
 func TestGetAllWithoutUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ := gin.CreateTestContext(recorder)
 
@@ -105,33 +108,105 @@ func TestGetAllWithoutUserID(t *testing.T) {
 	req, _ := http.NewRequest("GET", "http://example.com/", nil)
 	mockContext.Request = req
 
-	db := mockDB{}
-	todoHandler := &TodoHandler{
-		db:     db,
-		secret: []byte("some-secret"),
-	}
+	db := mockGetAll{}
 
 	// without userID in context
-	todoHandler.GetAll(mockContext)
+	GetAllTodos(db)(mockContext)
 	if recorder.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status code %d but received %d", http.StatusInternalServerError, recorder.Code)
+		t.Errorf("Expected status code %d but received %d",
+			http.StatusInternalServerError, recorder.Code)
 	}
-
-	// res := recorder.Result()
-	// res.Write
-	// if err := res.Write(os.Stdout); err != nil {
-	// 	t.Error(err)
-	// }
 }
 
-// func TestCreate(t *testing.T) {
-// 	mockContext, _ := gin.CreateTestContext()
-// 	todoHandler := NewTodoHandler(db, []byte("secret"))
-// 	todoBody := &CreateBody{
-// 		Title: "some title",
-// 		Note:  "some note",
+type mock struct {
+	json         string
+	expectedCode int
+}
+
+func TestCreate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []mock{
+		{
+			`{"title": "test title","note": "test note"}`,
+			http.StatusCreated,
+		},
+		{
+			`{}`,
+			http.StatusBadRequest,
+		},
+		{
+			`{"some": "field"}`,
+			http.StatusBadRequest,
+		},
+		{
+			`{"title": "", "note": ""}`,
+			http.StatusBadRequest,
+		},
+		{
+			`{"title": "asd", "note": ""}`,
+			http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		recorder := httptest.NewRecorder() // implements http.ResponseWriter
+		mockContext, _ := gin.CreateTestContext(recorder)
+		userID := uint(11)
+		mockContext.Set("userID", userID)
+		req, _ := http.NewRequest("POST", "http://example.com/",
+			bytes.NewBuffer([]byte(test.json)))
+		mockContext.Request = req
+		db := mockCreate{}
+		CreateTodo(db)(mockContext)
+
+		if recorder.Code != test.expectedCode {
+			t.Errorf("Expected status code %d but received %d",
+				test.expectedCode, recorder.Code)
+			t.Log(recorder.Body)
+		}
+	}
+}
+
+// func TestUpdateTodo(t *testing.T) {
+// 	gin.SetMode(gin.TestMode)
+// 	tests := []mock{
+// 		{
+// 			`{"title": "test title","note": "test note"}`,
+// 			http.StatusCreated,
+// 		},
+// 		{
+// 			`{}`,
+// 			http.StatusBadRequest,
+// 		},
+// 		{
+// 			`{"some": "field"}`,
+// 			http.StatusBadRequest,
+// 		},
+// 		{
+// 			`{"title": "", "note": ""}`,
+// 			http.StatusBadRequest,
+// 		},
+// 		{
+// 			`{"title": "asd", "note": ""}`,
+// 			http.StatusBadRequest,
+// 		},
 // 	}
 //
-// 	todoHandler.Create()
+// 	for _, test := range tests {
+// 		recorder := httptest.NewRecorder() // implements http.ResponseWriter
+// 		mockContext, _ := gin.CreateTestContext(recorder)
+// 		userID := uint(11)
+// 		mockContext.Set("userID", userID)
+// 		req, _ := http.NewRequest("PUT", "localhost:8080/api/v1/todos/123",
+// 			bytes.NewBuffer([]byte(test.json)))
+// 		mockContext.Request = req
+// 		db := mockUpdate{}
+// 		UpdateTodo(db)(mockContext)
 //
+// 		if recorder.Code != test.expectedCode {
+// 			t.Errorf("Expected status code %d but received %d",
+// 				test.expectedCode, recorder.Code)
+// 			t.Log(recorder.Body)
+// 		}
+// 	}
 // }

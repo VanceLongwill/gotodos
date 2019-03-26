@@ -36,16 +36,17 @@ type DBCreateUser interface {
 	CreateUser(u *User) (*User, error)
 }
 
+type RegisterRequest struct {
+	Email     string `json:"email" binding:"required"`
+	Password  string `json:"password" binding:"required"`
+	FirstName string `json:"firstName" binding:"required"`
+	LastName  string `json:"lastName" binding:"required"`
+}
+
 // RegisterUser returns a function which handles requests to create a new application user
 func RegisterUser(db DBCreateUser, secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// RegisterRequest specifies the request body shape for registering a new application user
-		type RegisterRequest struct {
-			Email     string `json: "email" binding: "required"`
-			Password  string `json: "password" binding: "required"`
-			FirstName string `json: "firstName" binding: "required"`
-			LastName  string `json: "lastName" binding: "required"`
-		}
 		var body RegisterRequest
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -55,8 +56,8 @@ func RegisterUser(db DBCreateUser, secret []byte) gin.HandlerFunc {
 			return
 		}
 
-		hashBytes, hashErr := bcrypt.GenerateFromPassword([]byte(body.Password), 12)
-		if hashErr != nil {
+		hashBytes, err := bcrypt.GenerateFromPassword([]byte(body.Password), 12)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Unable to register user"})
 			return
 		}
@@ -99,14 +100,15 @@ type DBGetUser interface {
 	GetUser(email string) (*User, error)
 }
 
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
 // LoginUser returns a function which handles requests to login application users
 func LoginUser(db DBGetUser, secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// LoginRequest specifies the request body shape for logging in an application user
-		type LoginRequest struct {
-			Email    string `json: "email" binding: "required"`
-			Password string `json: "password" binding: "required"`
-		}
 		var body LoginRequest
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
