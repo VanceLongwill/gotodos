@@ -11,13 +11,13 @@ import (
 )
 
 // Context allows mocking of the gin.Context functions required
-// type Context interface {
-// 	Get(s string) (string, bool)
-// 	BindJSON(o interface{}) error
-// 	JSON(code int, obj interface{})
-// 	DefaultQuery(key, defaultValue string) string
-// 	Param(s string) string
-// }
+type Context interface {
+	Get(s string) (string, bool)
+	BindJSON(o interface{}) error
+	JSON(code int, obj interface{})
+	DefaultQuery(key, defaultValue string) string
+	Param(s string) string
+}
 
 // Todo is a type alias for convenience
 type Todo = models.Todo
@@ -33,12 +33,45 @@ type TodoStore interface {
 }
 
 // StringToUint is a util function which converts strings to uints
-func StringToUint(n string) uint {
+func StringToUint(n string) (uint, error) {
 	u64, err := strconv.ParseUint(n, 10, 32)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	return uint(u64)
+	return uint(u64), nil
+}
+
+func getUserIDFromContext(c *gin.Context) (uint, bool) {
+	strUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Unable to get UserID",
+		})
+		return 0, false
+	}
+	return strUserID.(uint), true
+}
+
+func getTodoIDFromContext(c *gin.Context) (uint, bool) {
+	strTodoID := c.Param("id")
+	if len(strTodoID) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Unable to get todo ID",
+		})
+		return 0, false
+	}
+	todoID, err := StringToUint(strTodoID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Can't convert id in url to uint",
+		})
+		return 0, false
+	}
+
+	return todoID, true
 }
 
 // DBCreateTodo represents the part of the datalayer responsible for creation
@@ -54,15 +87,10 @@ type CreateRequestBody struct {
 // CreateTodo returns a function which handles requests to create todos
 func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strUserID, exists := c.Get("userID")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to get UserID",
-			})
+		userID, ok := getUserIDFromContext(c)
+		if !ok {
 			return
 		}
-		userID := strUserID.(uint)
 
 		var body CreateRequestBody
 		if err := c.BindJSON(&body); err != nil {
@@ -104,17 +132,19 @@ type DBGetAllTodos interface {
 // GetAllTodos returns a function responsible for handling requests for all the current User's todos
 func GetAllTodos(db DBGetAllTodos) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strUserID, exists := c.Get("userID")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to get UserID",
-			})
+		userID, ok := getUserIDFromContext(c)
+		if !ok {
 			return
 		}
-		userID := strUserID.(uint)
+
 		prev := c.DefaultQuery("prev", "0") // use previous id for pagination
-		previousID := StringToUint(prev)
+		previousID, err := StringToUint(prev)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "Can't convert `prev` query param to uint",
+			})
+		}
 
 		todos, err := db.GetAllTodos(userID, previousID)
 		if err != nil {
@@ -151,24 +181,15 @@ type DBGetTodo interface {
 // GetTodo returns a function which handles requests to get a single todo
 func GetTodo(db DBGetTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strUserID, exists := c.Get("userID")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to get UserID",
-			})
+		userID, ok := getUserIDFromContext(c)
+		if !ok {
 			return
 		}
-		userID := strUserID.(uint)
-		strTodoID := c.Param("id")
-		if len(strTodoID) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  http.StatusBadRequest,
-				"message": "Unable to get todo ID",
-			})
+
+		todoID, ok := getTodoIDFromContext(c)
+		if !ok {
 			return
 		}
-		todoID := StringToUint(strTodoID)
 
 		todo, err := db.GetTodo(todoID, userID)
 
@@ -191,31 +212,21 @@ type DBUpdateTodo interface {
 }
 
 type UpdateRequestBody struct {
-	Title string `json:"title"`
-	Note  string `json:"note"`
+	Title string `json:"title" binding:"required"`
+	Note  string `json:"note" binding:"required"`
 }
 
 // UpdateTodo returns a function which handles requests to edit an existing Todo
 func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strUserID, exists := c.Get("userID")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to get UserID",
-			})
+		userID, ok := getUserIDFromContext(c)
+		if !ok {
 			return
 		}
-		userID := strUserID.(uint)
-		strTodoID := c.Param("id")
-		if len(strTodoID) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  http.StatusBadRequest,
-				"message": "Unable to get todo ID",
-			})
+		todoID, ok := getTodoIDFromContext(c)
+		if !ok {
 			return
 		}
-		todoID := StringToUint(strTodoID)
 
 		var body UpdateRequestBody
 
@@ -261,24 +272,14 @@ type DBDeleteTodo interface {
 // DeleteTodo returns a function which handles requests to delete a todo
 func DeleteTodo(db DBDeleteTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strUserID, exists := c.Get("userID")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to get UserID",
-			})
+		userID, ok := getUserIDFromContext(c)
+		if !ok {
 			return
 		}
-		userID := strUserID.(uint)
-		strTodoID := c.Param("id")
-		if len(strTodoID) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  http.StatusBadRequest,
-				"message": "Unable to get todo ID",
-			})
+		todoID, ok := getTodoIDFromContext(c)
+		if !ok {
 			return
 		}
-		todoID := StringToUint(strTodoID)
 
 		deletedTodoID, err := db.DeleteTodo(todoID, userID)
 
@@ -299,24 +300,15 @@ type DBMarkTodoAsComplete interface {
 // MarkTodoAsComplete returns a function which handles requests to mark a todo as complete
 func MarkTodoAsComplete(db DBMarkTodoAsComplete) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strUserID, exists := c.Get("userID")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to get UserID",
-			})
+		userID, ok := getUserIDFromContext(c)
+		if !ok {
 			return
 		}
-		userID := strUserID.(uint)
-		strTodoID := c.Param("id")
-		if len(strTodoID) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  http.StatusBadRequest,
-				"message": "Unable to get todo ID",
-			})
+
+		todoID, ok := getTodoIDFromContext(c)
+		if !ok {
 			return
 		}
-		todoID := StringToUint(strTodoID)
 
 		if err := db.MarkTodoAsComplete(todoID, userID, time.Now()); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{

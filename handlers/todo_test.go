@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/lib/pq"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,20 +14,107 @@ import (
 func TestStringToUint(t *testing.T) {
 	t.Log(`Should convert strings to uint values`)
 	tests := []struct {
-		input    string
-		expected uint
+		input            string
+		expected         uint
+		shouldRaiseError bool
 	}{
-		{"156", 156},
-		{"0", 0},
-		{"1", 1},
-		{"180180", 180180},
+		{"156", 156, false},
+		{"0", 0, false},
+		{"1", 1, false},
+		{"180180", 180180, false},
+		{"-*", 0, true},
 	}
 
 	for _, test := range tests {
-		res := StringToUint(test.input)
-		if res != test.expected {
+		res, err := StringToUint(test.input)
+		if err != nil && !test.shouldRaiseError {
+			t.Errorf("Unexpected error %s", err.Error())
+			t.Fail()
+		} else if err == nil && test.shouldRaiseError {
+			t.Errorf("Expected error to be returned")
+			t.Fail()
+		}
+
+		if !test.shouldRaiseError && res != test.expected {
 			t.Errorf("Expected %d but received %d", test.expected, res)
 		}
+	}
+}
+
+func TestGetUserIDFromContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ := gin.CreateTestContext(recorder)
+
+	userID, ok := getUserIDFromContext(mockContext)
+	if ok {
+		t.Errorf("should fail when userID is not set")
+		t.Fail()
+		return
+	}
+
+	mockContext.Set("userID", uint(1))
+	userID, ok = getUserIDFromContext(mockContext)
+	if !ok {
+		t.Errorf("unable to get userID")
+		t.Fail()
+		return
+	}
+
+	if userID != 1 {
+		t.Errorf("Expected ID to be 1, instead found: %d", userID)
+		t.Fail()
+	}
+}
+
+func TestGetTodoIDFromContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ := gin.CreateTestContext(recorder)
+
+	todoID, ok := getTodoIDFromContext(mockContext)
+	if ok {
+		t.Errorf("should return false when todoID is not set")
+		t.Fail()
+		return
+	}
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code %d but received %d", http.StatusBadRequest, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ = gin.CreateTestContext(recorder)
+	mockContext.Params = []gin.Param{{"id", "1"}}
+
+	todoID, ok = getTodoIDFromContext(mockContext)
+	if !ok {
+		t.Errorf("unable to get todoID")
+		t.Fail()
+		return
+	}
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("Expected status code %d but received %d", http.StatusOK, recorder.Code)
+	}
+
+	if todoID != 1 {
+		t.Errorf("Expected ID to be 1, instead found: %d", todoID)
+		t.Fail()
+	}
+
+	recorder = httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ = gin.CreateTestContext(recorder)
+	mockContext.Params = []gin.Param{{"id", "*&*&^-"}}
+	todoID, ok = getTodoIDFromContext(mockContext)
+	if ok {
+		t.Errorf(`should return false when id is unconvertable`)
+		t.Fail()
+		return
+	}
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("Expected status code %d but received %d", http.StatusBadRequest, recorder.Code)
 	}
 }
 
@@ -55,12 +141,8 @@ func (db mockDelete) DeleteTodo(todoID, userID uint) (uint, error) {
 
 type mockComplete struct{}
 
-func (db mockComplete) MarkTodoAsComplete(todoID, userID uint, currentTime time.Time) (*Todo, error) {
-	return &Todo{
-		ID:          todoID,
-		UserID:      userID,
-		CompletedAt: pq.NullTime{currentTime, true},
-	}, nil
+func (db mockComplete) MarkTodoAsComplete(todoID, userID uint, currentTime time.Time) error {
+	return nil
 }
 
 type mockUpdate struct{}
@@ -126,7 +208,7 @@ type mock struct {
 	expectedCode int
 }
 
-func TestCreate(t *testing.T) {
+func TestCreateTodo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []mock{
 		{
@@ -170,46 +252,101 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-// func TestUpdateTodo(t *testing.T) {
-// 	gin.SetMode(gin.TestMode)
-// 	tests := []mock{
-// 		{
-// 			`{"title": "test title","note": "test note"}`,
-// 			http.StatusCreated,
-// 		},
-// 		{
-// 			`{}`,
-// 			http.StatusBadRequest,
-// 		},
-// 		{
-// 			`{"some": "field"}`,
-// 			http.StatusBadRequest,
-// 		},
-// 		{
-// 			`{"title": "", "note": ""}`,
-// 			http.StatusBadRequest,
-// 		},
-// 		{
-// 			`{"title": "asd", "note": ""}`,
-// 			http.StatusBadRequest,
-// 		},
-// 	}
-//
-// 	for _, test := range tests {
-// 		recorder := httptest.NewRecorder() // implements http.ResponseWriter
-// 		mockContext, _ := gin.CreateTestContext(recorder)
-// 		userID := uint(11)
-// 		mockContext.Set("userID", userID)
-// 		req, _ := http.NewRequest("PUT", "localhost:8080/api/v1/todos/123",
-// 			bytes.NewBuffer([]byte(test.json)))
-// 		mockContext.Request = req
-// 		db := mockUpdate{}
-// 		UpdateTodo(db)(mockContext)
-//
-// 		if recorder.Code != test.expectedCode {
-// 			t.Errorf("Expected status code %d but received %d",
-// 				test.expectedCode, recorder.Code)
-// 			t.Log(recorder.Body)
-// 		}
-// 	}
-// }
+func TestGetTodo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ := gin.CreateTestContext(recorder)
+	userID := uint(11)
+	mockContext.Set("userID", userID)
+	mockContext.Params = []gin.Param{{"id", "1"}}
+
+	db := mockGet{}
+
+	GetTodo(db)(mockContext)
+
+	if recorder.Code != 200 {
+		t.Errorf("Expected status code %d but received %d",
+			200, recorder.Code)
+		t.Log(recorder.Body)
+		t.Fail()
+	}
+}
+
+func TestUpdateTodo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []mock{
+		{
+			`{"title": "test title","note": "test note"}`,
+			http.StatusOK,
+		},
+		{
+			`{}`,
+			http.StatusBadRequest,
+		},
+		{
+			`{"some": "field"}`,
+			http.StatusBadRequest,
+		},
+		{
+			`{"title": "", "note": ""}`,
+			http.StatusBadRequest,
+		},
+		{
+			`{"title": "asd", "note": ""}`,
+			http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		recorder := httptest.NewRecorder() // implements http.ResponseWriter
+		mockContext, _ := gin.CreateTestContext(recorder)
+		mockContext.Set("userID", uint(1))
+		mockContext.Params = []gin.Param{{"id", "1"}}
+		req, _ := http.NewRequest("POST", "http://example.com/",
+			bytes.NewBuffer([]byte(test.json)))
+		mockContext.Request = req
+		db := mockUpdate{}
+		UpdateTodo(db)(mockContext)
+
+		if recorder.Code != test.expectedCode {
+			t.Errorf("Expected status code %d but received %d",
+				test.expectedCode, recorder.Code)
+			t.Log(recorder.Body)
+		}
+	}
+}
+
+func TestDeleteTodo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ := gin.CreateTestContext(recorder)
+	mockContext.Set("userID", uint(1))
+	mockContext.Params = []gin.Param{{"id", "1"}}
+	db := mockDelete{}
+	DeleteTodo(db)(mockContext)
+
+	if recorder.Code != 200 {
+		t.Errorf("Expected status code %d but received %d",
+			200, recorder.Code)
+		t.Log(recorder.Body)
+	}
+}
+
+func TestMarkTodoAsComplete(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder() // implements http.ResponseWriter
+	mockContext, _ := gin.CreateTestContext(recorder)
+	mockContext.Set("userID", uint(1))
+	mockContext.Params = []gin.Param{{"id", "1"}}
+	db := mockComplete{}
+	MarkTodoAsComplete(db)(mockContext)
+
+	if recorder.Code != 200 {
+		t.Errorf("Expected status code %d but received %d",
+			200, recorder.Code)
+		t.Log(recorder.Body)
+	}
+}
