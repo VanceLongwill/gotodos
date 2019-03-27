@@ -7,11 +7,11 @@ build:
 
 .PHONY: test
 test: 
-	go test $(PKGS)
+	go test $(PKGS) -test.v
 
 coverage:
 	go test $(PKGS) -coverprofile=coverage.out
-	go tool cover -html=coverage.out
+	go tool cover -html=coverage.out -o coverage_report.html
 
 $(GOMETALINTER): 
 	go get -u github.com/alecthomas/gometalinter 
