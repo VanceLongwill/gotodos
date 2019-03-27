@@ -1,2 +1,5 @@
 .env
 vendor/
+coverage.out
+gotodos
+main
