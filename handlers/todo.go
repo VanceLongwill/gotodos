@@ -109,17 +109,15 @@ func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 
 		if err := db.CreateTodo(&todo); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":     http.StatusInternalServerError,
-				"message":    "Unable to save todo",
-				"resourceId": todo.ID,
+				"status":  http.StatusInternalServerError,
+				"message": "Unable to save todo",
 			})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"status":     http.StatusCreated,
-			"message":    "Todo item created successfully!",
-			"resourceId": todo.ID,
+			"status":  http.StatusCreated,
+			"message": "Todo item created successfully!",
 		})
 	}
 }
