@@ -19,29 +19,54 @@
 
 ## Installation
 
-## Using the Makefile
+### Using the Makefile
 
-### Available commands
+#### Available commands
 
-- `make` Builds the project
+- `make` Builds the project locally
 - `make test` Runs all tests
-- `make lint` Lints the whole project using gometalinter (which is automatically installed if not already)
+- `make lint` Lints the whole project using *gometalinter* (which is automatically installed if not already)
 - `make coverage` Generates a HTML code coverage report [coverage_report.html](./coverage_report.html)
+- `make run` runs main.go to connect to the db via localhost for development/debugging purposes
 
-## Running Locally
+## Running locally
 
-- start all containers in background
+- Set the relevant environment variables (see .env.sample)
+```sh
+cp .env.sample .env
+source .env
 ```
+
+- Launch the postgres image
+```sh
+docker-compose up --build db
+```
+
+- Launch the app, connecting to the db via localhost, by using 
+```sh
+make run
+```
+
+## Running in production
+
+- Set the relevant environment variables (see .env.sample)
+```sh
+cp .env.sample .env
+source .env
+```
+
+- Start all containers in background
+```sh
 docker-compose up --build
 ```
 
-- stop all running containers
-```
+- Stop all running containers
+```sh
 docker-compose stop
 ```
 
-- remove all containers & volumes
-```
+- Remove all containers & volumes
+```sh
 docker-compose down
 ```
 
@@ -208,7 +233,7 @@ docker-compose down
 ## DB Admin
 
 - open a `psql` shell in the container (this doesn't require a local postgres installation)
-  ```
+  ```sh
   docker exec --tty --interactive \
   gotodos_db_1 psql \
   -h localhost -U gotodos -d postgres

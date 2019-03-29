@@ -20,3 +20,8 @@ $(GOMETALINTER):
 .PHONY: lint
 lint: $(GOMETALINTER)
 	gometalinter ./... --vendor
+
+.PHONY: run
+run:
+	POSTGRES_HOST=0.0.0.0:5432 API_MODE=develop GIN_MODE=debug go run main.go
+
