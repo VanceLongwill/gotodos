@@ -12,17 +12,17 @@ type DB struct {
 }
 
 // NewDB makes & tests a connection with the DB specified then returns it
-func NewDB(host, port, user, password, dbname string) (*DB, error) {
+func NewDB(user, password, dbname, host string) (*DB, error) {
+	connectString := fmt.Sprintf(
+		"postgresql://%s:%s@%s/%s?sslmode=disable",
+		user, password, host, dbname)
 	// open a db connection
-	connectstring := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-	db, err := sql.Open("postgres", connectstring)
+	db, err := sql.Open("postgres", connectString)
 	if err != nil {
 		return nil, err
 	}
-	if connecterr := db.Ping(); connecterr != nil {
-		return nil, connecterr
+	if err = db.Ping(); err != nil {
+		return nil, err
 	}
 	return &DB{db}, nil
 }

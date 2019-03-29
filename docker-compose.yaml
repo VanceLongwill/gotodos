@@ -1,13 +1,28 @@
-version: "3"
+version: "3" # docker-compose version
 services:
-  # web: # @TODO
-  #   build: ./docker/web
-  #   image: gotodos_web:v1
-  #   ports:
-  #     - "5000:5000"
   db:
     build: ./docker/db
-    # context: ./docker/db
-    # image: gotodos_db:v1
+    image: gotodos_db:${API_VERSION}
     ports:
       - "5432:5432"
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/web/Dockerfile
+    image: gotodos_web:${API_VERSION}
+    ports:
+      - "8080:8080"
+    restart: on-failure
+    depends_on: 
+      - db
+    environment: # pass down the following env vars from the parent shell
+      - JWT_SECRET
+      - API_VERSION
+      - API_PORT
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_NAME
+      - POSTGRES_HOST
+      - API_MODE
+      - GIN_MODE
+

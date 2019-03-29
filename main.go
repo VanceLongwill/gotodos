@@ -6,28 +6,39 @@ import (
 	"github.com/vancelongwill/gotodos/handlers"
 	"github.com/vancelongwill/gotodos/middleware"
 	"github.com/vancelongwill/gotodos/models"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
+	"reflect"
 )
 
-const (
-	apiVersion  = "v1"
-	apiPrefix   = "api"
-	apiPort     = 8080
-	jwtSecretFn = "jwtsecret.key"
-)
+// Env defines the environment variables necessary for the app to run
+type Env struct {
+	APIVersion       string `env:"API_VERSION"`
+	APIPort          string `env:"API_PORT"`
+	JWTSecret        string `env:"JWT_SECRET"`
+	APIMode          string `env:"API_MODE"`
+	PostgresUser     string `env:"POSTGRES_USER"`
+	PostgresPassword string `env:"POSTGRES_PASSWORD"`
+	PostgresName     string `env:"POSTGRES_NAME"`
+	PostgresHost     string `env:"POSTGRES_HOST"`
+}
 
-func getSecret() []byte {
-	key, err := ioutil.ReadFile(jwtSecretFn)
-	if err != nil {
-		log.Fatal("Error reading from: ", jwtSecretFn, err)
+// getEnv gets all the necessary environment variables
+func getEnv() *Env {
+	env := Env{}
+	v := reflect.ValueOf(&env).Elem()
+	t := reflect.TypeOf(env)
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("env")
+		val := os.Getenv(tag)
+		if len(val) == 0 {
+			panic(fmt.Sprintf("Error getting environment variables: %s not set", tag))
+		}
+		v.Field(i).SetString(val)
 	}
-	if len(key) == 0 {
-		log.Fatal("Empty jwt key")
-	}
-	return key
+	return &env
 }
 
 func ping(c *gin.Context) {
@@ -37,17 +48,22 @@ func ping(c *gin.Context) {
 }
 
 func main() {
-	db, dbErr := models.NewDB("0.0.0.0", "5432", "gotodos", "gotodos", "gotodos")
+	// Load env vars into a struct
+	env := getEnv()
+	// Open DB connection
+	db, dbErr := models.NewDB(env.PostgresUser,
+		env.PostgresPassword, env.PostgresName, env.PostgresHost)
 	if dbErr != nil {
 		log.Fatal("Error initialising database:\t", dbErr)
 	}
 
-	jwtSecret := getSecret()
 	app := gin.Default()
 	app.GET("/ping", ping)
 
-	todoRouter := app.Group(path.Join(apiPrefix, apiVersion, "todos"))
+	jwtSecret := []byte(env.JWTSecret)
 
+	// todo resources
+	todoRouter := app.Group(path.Join("api", env.APIVersion, "todos"))
 	todoRouter.Use(middleware.Authorize(jwtSecret))
 	{
 		todoRouter.GET("/", handlers.GetAllTodos(db))
@@ -58,11 +74,12 @@ func main() {
 		todoRouter.DELETE("/:id", handlers.DeleteTodo(db))
 	}
 
-	userRouter := app.Group(path.Join(apiPrefix, apiVersion, "user"))
+	// user resources
+	userRouter := app.Group(path.Join("api", env.APIVersion, "user"))
 	{
 		userRouter.POST("/login", handlers.LoginUser(db, jwtSecret))
 		userRouter.POST("/register", handlers.RegisterUser(db, jwtSecret))
 	}
 
-	app.Run(fmt.Sprintf(":%d", apiPort))
+	app.Run(fmt.Sprintf(":%s", env.APIPort))
 }
