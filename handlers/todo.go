@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/vancelongwill/gotodos/models"
@@ -70,11 +69,6 @@ type DBCreateTodo interface {
 	CreateTodo(t *Todo) error
 }
 
-type CreateRequestBody struct {
-	Title string `json:"title"`
-	Note  string `json:"note" binding:"required"`
-}
-
 // CreateTodo returns a function which handles requests to create todos
 func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -83,7 +77,11 @@ func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 			return
 		}
 
-		var body CreateRequestBody
+		var body struct {
+			Title string `json:"title" binding:"required"`
+			Note  string `json:"note" binding:"required"`
+		}
+
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,
@@ -93,8 +91,8 @@ func CreateTodo(db DBCreateTodo) gin.HandlerFunc {
 		}
 
 		todo := Todo{
-			Title:  sql.NullString{body.Title, true},
-			Note:   sql.NullString{body.Note, true},
+			Title:  models.MakeNullString(body.Title),
+			Note:   models.MakeNullString(body.Note),
 			UserID: userID,
 		}
 
@@ -200,11 +198,6 @@ type DBUpdateTodo interface {
 	UpdateTodo(t Todo) (*Todo, error)
 }
 
-type UpdateRequestBody struct {
-	Title string `json:"title" binding:"required"`
-	Note  string `json:"note" binding:"required"`
-}
-
 // UpdateTodo returns a function which handles requests to edit an existing Todo
 func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -217,7 +210,10 @@ func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 			return
 		}
 
-		var body UpdateRequestBody
+		var body struct {
+			Title string `json:"title" binding:"required"`
+			Note  string `json:"note" binding:"required"`
+		}
 
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -238,8 +234,8 @@ func UpdateTodo(db DBUpdateTodo) gin.HandlerFunc {
 		_todo := Todo{
 			ID:         todoID,
 			UserID:     userID,
-			Title:      sql.NullString{body.Title, true},
-			Note:       sql.NullString{body.Note, true},
+			Title:      models.MakeNullString(body.Title),
+			Note:       models.MakeNullString(body.Note),
 			ModifiedAt: time.Now(),
 		}
 

@@ -19,7 +19,7 @@ $(GOMETALINTER):
 
 .PHONY: lint
 lint: $(GOMETALINTER)
-	gometalinter ./... --vendor
+	gometalinter ./... --vendor --deadline=60s
 
 .PHONY: run
 run:

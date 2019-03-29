@@ -86,12 +86,16 @@ func (db *DB) GetAllTodos(userID, previousID uint) ([]*Todo, error) {
 	LIMIT $2;`
 	rows, err := db.Query(sqlStatement, userID, resultsPerPage, previousID)
 
-	defer rows.Close()
+	defer func() {
+		if err = rows.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
 	todos := make([]*Todo, 0)
 	for rows.Next() {
 		t := new(Todo)
-		if err := rows.
+		if err = rows.
 			Scan(&t.ID, &t.Title, &t.Note, &t.CreatedAt, &t.ModifiedAt, &t.DueAt, &t.UserID, &t.CompletedAt, &t.IsDone); err != nil {
 			return nil, err
 		}

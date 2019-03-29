@@ -51,10 +51,10 @@ func main() {
 	// Load env vars into a struct
 	env := getEnv()
 	// Open DB connection
-	db, dbErr := models.NewDB(env.PostgresUser,
+	db, err := models.NewDB(env.PostgresUser,
 		env.PostgresPassword, env.PostgresName, env.PostgresHost)
-	if dbErr != nil {
-		log.Fatal("Error initialising database:\t", dbErr)
+	if err != nil {
+		log.Fatal("Error initialising database:\t", err)
 	}
 
 	app := gin.Default()
@@ -81,5 +81,7 @@ func main() {
 		userRouter.POST("/register", handlers.RegisterUser(db, jwtSecret))
 	}
 
-	app.Run(fmt.Sprintf(":%s", env.APIPort))
+	if err = app.Run(fmt.Sprintf(":%s", env.APIPort)); err != nil {
+		panic(err)
+	}
 }

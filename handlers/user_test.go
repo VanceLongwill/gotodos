@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-var secret []byte = []byte("some secret")
+var secret = []byte("some secret")
 
 type mockCreateUser struct{}
 

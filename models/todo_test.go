@@ -25,13 +25,13 @@ func TestSerialize(t *testing.T) {
 	mockNow := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	todo := Todo{
 		ID:          1,
-		Title:       sql.NullString{"example title", true},
-		Note:        sql.NullString{"example note", true},
+		Title:       MakeNullString("example title"),
+		Note:        MakeNullString("example note"),
 		CreatedAt:   mockNow,
 		ModifiedAt:  mockNow,
-		DueAt:       pq.NullTime{mockNow, false},
+		DueAt:       pq.NullTime{Time: mockNow, Valid: false},
 		UserID:      22,
-		CompletedAt: pq.NullTime{mockNow, false},
+		CompletedAt: pq.NullTime{Time: mockNow, Valid: false},
 		IsDone:      false,
 	}
 
@@ -84,8 +84,8 @@ func TestCreateTodoEmpty(t *testing.T) {
 	db := DB{mockDB}
 
 	emptyTodo := Todo{
-		Title: sql.NullString{"", true},
-		Note:  sql.NullString{"", true},
+		Title: MakeNullString(""),
+		Note:  MakeNullString(""),
 	}
 
 	if err := db.CreateTodo(&emptyTodo); err != ErrorEmptyTodo {
@@ -104,8 +104,8 @@ func TestCreateTodo(t *testing.T) {
 
 	todo := Todo{
 		ID:     1,
-		Title:  sql.NullString{"asd", true},
-		Note:   sql.NullString{"example note", true},
+		Title:  MakeNullString("asd"),
+		Note:   MakeNullString("example note"),
 		UserID: 22,
 	}
 
@@ -281,8 +281,8 @@ func TestUpdateTodo(t *testing.T) {
 	defer mockDB.Close()
 
 	todo := Todo{
-		Title:      sql.NullString{"modified title", true},
-		Note:       sql.NullString{"changed note", true},
+		Title:      MakeNullString("modified title"),
+		Note:       MakeNullString("changed note"),
 		UserID:     1,
 		ID:         1,
 		ModifiedAt: time.Now(),

@@ -15,12 +15,6 @@ func TestAuthorize(t *testing.T) {
 
 	secret := []byte("secret")
 
-	// Authorize(secret)(mockContext)
-	// if recorder.Code != http.StatusUnauthorized {
-	// 	t.Errorf("Expected status code %d but received %d", http.StatusUnauthorized, recorder.Code)
-	// 	t.Fail()
-	// 	return
-	// }
 	type headerTest struct {
 		header string
 		code   int
@@ -31,8 +25,6 @@ func TestAuthorize(t *testing.T) {
 		{"token", http.StatusBadRequest},
 		{"", http.StatusUnauthorized},
 	}
-	// recorder := httptest.NewRecorder() // implements http.ResponseWriter
-	// mockContext, _ := gin.CreateTestContext(recorder)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &UserClaims{
 		ID: 1,
@@ -63,10 +55,4 @@ func TestAuthorize(t *testing.T) {
 			return
 		}
 	}
-
-	// _, exists := mockContext.Get("userID")
-	// if !exists {
-	// 	t.Error("userID must be present in context after successful authorization")
-	// 	t.Fail()
-	// }
 }

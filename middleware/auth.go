@@ -9,7 +9,7 @@ import (
 
 // UserClaims is used for creating and parsing jwts
 type UserClaims struct {
-	ID                 uint `json: "id"`
+	ID                 uint `json:"id"`
 	jwt.StandardClaims      // includes ExpiresAt
 }
 

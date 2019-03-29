@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/DATA-DOG/go-sqlmock"
@@ -20,8 +19,8 @@ func TestSerializeUser(t *testing.T) {
 
 	user := User{
 		ID:        1,
-		FirstName: sql.NullString{"John", true},
-		LastName:  sql.NullString{"Smith", true},
+		FirstName: MakeNullString("John"),
+		LastName:  MakeNullString("Smith"),
 		Email:     "a@b.com",
 		Password:  "password",
 	}
@@ -100,8 +99,8 @@ func TestCreateUser(t *testing.T) {
 
 	user := User{
 		Email:     "a@b.com",
-		FirstName: sql.NullString{"John", true},
-		LastName:  sql.NullString{"Smith", true},
+		FirstName: MakeNullString("John"),
+		LastName:  MakeNullString("Smith"),
 		Password:  "hashed_password",
 	}
 

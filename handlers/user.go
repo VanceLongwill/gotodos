@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/vancelongwill/gotodos/middleware"
@@ -36,18 +35,17 @@ type DBCreateUser interface {
 	CreateUser(u *User) (*User, error)
 }
 
-type RegisterRequest struct {
-	Email     string `json:"email" binding:"required"`
-	Password  string `json:"password" binding:"required"`
-	FirstName string `json:"firstName" binding:"required"`
-	LastName  string `json:"lastName" binding:"required"`
-}
-
 // RegisterUser returns a function which handles requests to create a new application user
 func RegisterUser(db DBCreateUser, secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// RegisterRequest specifies the request body shape for registering a new application user
-		var body RegisterRequest
+		var body struct {
+			Email     string `json:"email" binding:"required"`
+			Password  string `json:"password" binding:"required"`
+			FirstName string `json:"firstName" binding:"required"`
+			LastName  string `json:"lastName" binding:"required"`
+		}
+
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,
@@ -65,8 +63,8 @@ func RegisterUser(db DBCreateUser, secret []byte) gin.HandlerFunc {
 		user := models.User{
 			Email:     body.Email,
 			Password:  string(hashBytes),
-			FirstName: sql.NullString{body.FirstName, true},
-			LastName:  sql.NullString{body.LastName, true},
+			FirstName: models.MakeNullString(body.FirstName),
+			LastName:  models.MakeNullString(body.LastName),
 		}
 
 		newUser, err := db.CreateUser(&user)
@@ -100,16 +98,15 @@ type DBGetUser interface {
 	GetUser(email string) (*User, error)
 }
 
-type LoginRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
 // LoginUser returns a function which handles requests to login application users
 func LoginUser(db DBGetUser, secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// LoginRequest specifies the request body shape for logging in an application user
-		var body LoginRequest
+		var body struct {
+			Email    string `json:"email" binding:"required"`
+			Password string `json:"password" binding:"required"`
+		}
+
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,

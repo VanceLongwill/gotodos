@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/vancelongwill/gotodos/models"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,7 +46,7 @@ func TestGetUserIDFromContext(t *testing.T) {
 	recorder := httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ := gin.CreateTestContext(recorder)
 
-	userID, ok := getUserIDFromContext(mockContext)
+	_, ok := getUserIDFromContext(mockContext)
 	if ok {
 		t.Errorf("should fail when userID is not set")
 		t.Fail()
@@ -54,7 +54,7 @@ func TestGetUserIDFromContext(t *testing.T) {
 	}
 
 	mockContext.Set("userID", uint(1))
-	userID, ok = getUserIDFromContext(mockContext)
+	userID, ok := getUserIDFromContext(mockContext)
 	if !ok {
 		t.Errorf("unable to get userID")
 		t.Fail()
@@ -72,7 +72,7 @@ func TestGetTodoIDFromContext(t *testing.T) {
 	recorder := httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ := gin.CreateTestContext(recorder)
 
-	todoID, ok := getTodoIDFromContext(mockContext)
+	_, ok := getTodoIDFromContext(mockContext)
 	if ok {
 		t.Errorf("should return false when todoID is not set")
 		t.Fail()
@@ -85,9 +85,9 @@ func TestGetTodoIDFromContext(t *testing.T) {
 
 	recorder = httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ = gin.CreateTestContext(recorder)
-	mockContext.Params = []gin.Param{{"id", "1"}}
+	mockContext.Params = []gin.Param{{Key: "id", Value: "1"}}
 
-	todoID, ok = getTodoIDFromContext(mockContext)
+	todoID, ok := getTodoIDFromContext(mockContext)
 	if !ok {
 		t.Errorf("unable to get todoID")
 		t.Fail()
@@ -105,8 +105,8 @@ func TestGetTodoIDFromContext(t *testing.T) {
 
 	recorder = httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ = gin.CreateTestContext(recorder)
-	mockContext.Params = []gin.Param{{"id", "*&*&^-"}}
-	todoID, ok = getTodoIDFromContext(mockContext)
+	mockContext.Params = []gin.Param{{Key: "id", Value: "*&*&^-"}}
+	_, ok = getTodoIDFromContext(mockContext)
 	if ok {
 		t.Errorf(`should return false when id is unconvertable`)
 		t.Fail()
@@ -158,7 +158,7 @@ func (db mockGetAll) GetAllTodos(id, prevID uint) ([]*Todo, error) {
 	for i := uint(0); i < 10; i++ {
 		t := &Todo{}
 		t.ID = i
-		t.Title = sql.NullString{fmt.Sprintf("TODO NO. %d", i), true}
+		t.Title = models.MakeNullString(fmt.Sprintf("TODO NO. %d", i))
 		todos = append(todos, t)
 	}
 	return todos, nil
@@ -258,7 +258,7 @@ func TestGetTodo(t *testing.T) {
 	mockContext, _ := gin.CreateTestContext(recorder)
 	userID := uint(11)
 	mockContext.Set("userID", userID)
-	mockContext.Params = []gin.Param{{"id", "1"}}
+	mockContext.Params = []gin.Param{{Key: "id", Value: "1"}}
 
 	db := mockGet{}
 
@@ -302,7 +302,7 @@ func TestUpdateTodo(t *testing.T) {
 		recorder := httptest.NewRecorder() // implements http.ResponseWriter
 		mockContext, _ := gin.CreateTestContext(recorder)
 		mockContext.Set("userID", uint(1))
-		mockContext.Params = []gin.Param{{"id", "1"}}
+		mockContext.Params = []gin.Param{{Key: "id", Value: "1"}}
 		req, _ := http.NewRequest("POST", "http://example.com/",
 			bytes.NewBuffer([]byte(test.json)))
 		mockContext.Request = req
@@ -323,7 +323,7 @@ func TestDeleteTodo(t *testing.T) {
 	recorder := httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ := gin.CreateTestContext(recorder)
 	mockContext.Set("userID", uint(1))
-	mockContext.Params = []gin.Param{{"id", "1"}}
+	mockContext.Params = []gin.Param{{Key: "id", Value: "1"}}
 	db := mockDelete{}
 	DeleteTodo(db)(mockContext)
 
@@ -340,7 +340,7 @@ func TestMarkTodoAsComplete(t *testing.T) {
 	recorder := httptest.NewRecorder() // implements http.ResponseWriter
 	mockContext, _ := gin.CreateTestContext(recorder)
 	mockContext.Set("userID", uint(1))
-	mockContext.Params = []gin.Param{{"id", "1"}}
+	mockContext.Params = []gin.Param{{Key: "id", Value: "1"}}
 	db := mockComplete{}
 	MarkTodoAsComplete(db)(mockContext)
 
