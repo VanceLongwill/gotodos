@@ -10,15 +10,6 @@ import (
 	"time"
 )
 
-// Context allows mocking of the gin.Context functions required
-type Context interface {
-	Get(s string) (string, bool)
-	BindJSON(o interface{}) error
-	JSON(code int, obj interface{})
-	DefaultQuery(key, defaultValue string) string
-	Param(s string) string
-}
-
 // Todo is a type alias for convenience
 type Todo = models.Todo
 

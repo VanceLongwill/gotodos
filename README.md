@@ -4,7 +4,7 @@
 ## Features
 
 - Read/Write capability over API
-- Simple authentication of requests
+- Authenticated routes/requests
 - Use database for storage
 - JSON – format for communication
 - Includes simple documentation (README)
@@ -12,10 +12,12 @@
 
 ## Stack
 
-- Postgres for a database
-- Golang `database/sql` for database interactions
-- Gin for a http framework / routing
-- Docker for containerization
+- [Postgres](https://www.postgresql.org) for a database
+- Golang's [`database/sql`](https://golang.org/pkg/database/sql/) and this [Postgres driver](https://github.com/lib/pq) for database interactions
+- [Gin](https://github.com/gin-gonic/gin) for a http framework / routing
+- [Docker](https://www.docker.com) for containerization
+- Authentication using [JWT tokens](https://jwt.io)
+- Golang dependency management with [dep](https://github.com/golang/dep)
 
 ## Installation
 
@@ -30,6 +32,11 @@
 - `make run` runs main.go to connect to the db via localhost for development/debugging purposes
 
 ## Running locally
+
+- Download the necessary dependencies with [dep](https://github.com/golang/dep)
+```sh
+dep ensure
+```
 
 - Set the relevant environment variables (see .env.sample)
 ```sh
