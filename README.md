@@ -1,5 +1,5 @@
 # Go Todos
-> a simple todo list API written in Golang
+> a simple todo notes API written in Golang
 
 ## Features
 
